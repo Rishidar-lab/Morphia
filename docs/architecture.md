@@ -228,31 +228,68 @@ This check is performed **twice**, independently: once by the API when a step is
 
 ## 8. Evidence System
 
-Evidence is the connective tissue between "the agent claims X" and "we can prove X to a program or an auditor."
+Evidence is the connective tissue between "the agent claims X" and "we can prove X to a program or an auditor." Implemented in `apps/api/app/models/evidence.py`, `apps/api/app/routers/evidence.py`, and `apps/api/app/services/storage.py`.
 
-- **Integrity.** Every evidence artifact (screenshot, HTTP transcript, tool output, log excerpt) is hashed with **SHA-256** at capture time. The hash is stored alongside the metadata row and re-verified whenever the artifact is served, so any tampering with stored bytes is detectable.
-- **Provenance.** Each evidence record captures: which run/step produced it, which tool or provider call generated it, the actor (worker instance, agent profile, model/provider used), and a timestamp. Provenance is immutable once written — corrections are modeled as new evidence records referencing the original, never in-place edits.
-- **Storage.** Evidence blobs live in S3-compatible object storage (`STORAGE_BACKEND=s3`) or local filesystem in development (`STORAGE_BACKEND=local`, `STORAGE_LOCAL_PATH`). The API and worker access storage through a shared adapter so the backend can be swapped without touching business logic — this is part of the cloud-neutral design goal.
-- **Metadata vs. blob separation.** PostgreSQL holds evidence *metadata* (hash, provenance, links to findings/runs, content type, size); the object store holds the *bytes*. This keeps the database lean and lets evidence storage scale independently.
-- **Safe handling.** Evidence content is never executed or rendered as active content in the browser (see `docs/security.md` §5) — text/log evidence is rendered as plain text, images are served with strict content-type and `Content-Disposition` headers, and no evidence viewer ever evaluates HTML/JS found inside captured content.
-- **Chain to findings.** A finding cannot be marked "verified" without at least one linked evidence record; the report generator refuses to include unverified findings in a disclosure report.
+- **Integrity.** Every evidence artifact (screenshot, HTTP transcript, tool output, log excerpt) is hashed with **SHA-256** at capture time (`EvidenceArtifact.sha256_digest`, a 64-character string column). The hash is computed and stored the moment `POST /api/v1/projects/{id}/evidence` receives the upload, and can be re-verified whenever the artifact is served, so any tampering with stored bytes is detectable.
+- **Verification-status lifecycle.** Every evidence artifact carries a `verification_status` that starts at `unreviewed` and moves through `source_captured → integrity_verified → manually_reproduced` on the success path, or to `contradicted`, `inconclusive`, or `rejected` when a reviewer finds a problem. Moving an artifact's status is the one write path in the entire API gated by RBAC role rather than resource ownership: `PATCH /api/v1/evidence/{id}/verify` requires `Role.REVIEWER`, `Role.OWNER`, or `Role.ADMINISTRATOR` — a Researcher who owns the project cannot self-verify their own submitted evidence, enforcing a second set of eyes.
+- **Provenance.** Each evidence record captures which run/step produced it, the actor, and a timestamp, plus a `storage_path` pointing at the underlying blob. Provenance is immutable once written; corrections are modeled through the companion `EvidenceRelation` model (relation types `supplements`, `contradicts`, `supersedes`) referencing the original record rather than editing it in place.
+- **Storage.** Evidence blobs live in **S3-compatible object storage** (`STORAGE_BACKEND=s3`, backed by `S3StorageBackend`, works against AWS S3 or any S3-API-compatible service such as MinIO) or on the **local filesystem** in development (`STORAGE_BACKEND=local`, backed by `LocalStorageBackend`, path configured via `STORAGE_LOCAL_PATH`). Both backends implement the same interface in `apps/api/app/services/storage.py`, so switching backends is a configuration change, never a code change.
+- **Metadata vs. blob separation.** PostgreSQL holds evidence *metadata* (hash, provenance, verification status, links to findings/runs, content type, size); the object store holds the *bytes*. This keeps the database lean and lets evidence storage scale independently.
+- **Safe handling.** Evidence content is never executed or rendered as active content in the browser (see `docs/security.md`) — text/log evidence is rendered as plain text, images are served with strict content-type and `Content-Disposition` headers, and no evidence viewer evaluates HTML/JS found inside captured content.
+- **Chain to findings.** A finding cannot be marked `verified` without at least one linked evidence record; the report generator refuses to include unverified findings in a disclosure report.
 
-## 9. Provider Abstraction
+## 9. Finding Lifecycle
 
-MORPHIA never hard-codes a single LLM vendor. A provider adapter interface normalizes chat/completion calls, cost accounting, and error handling across:
+Findings are the unit of "we believe we found something" and are implemented in `apps/api/app/models/findings.py` and `apps/api/app/routers/findings.py`. A finding's `state` field moves through a 10-value lifecycle (richer than a simple candidate/verified split, to model the real workflow of a bug-bounty submission):
+
+```
+candidate → needs_evidence → needs_reproduction → verified → report_ready → submitted → triaged → resolved
+                                                       │
+                                                       ├──▶ rejected
+                                                       └──▶ duplicate
+```
+
+- **`candidate`** — initial state on creation (`POST /api/v1/projects/{id}/findings`). Represents an unverified claim, possibly generated by an AI agent during a run.
+- **`needs_evidence`** — the finding lacks a linked evidence artifact; it cannot progress further until one is attached.
+- **`needs_reproduction`** — evidence exists but reproduction/confirmation is still required before the finding can be trusted.
+- **`verified`** — the finding has been confirmed via a `FindingVerification` record (created by `POST /api/v1/findings/{id}/verify`, which stores a `result` of `confirmed`, `denied`, or `inconclusive` and updates state accordingly).
+- **`report_ready`** — a verified finding that has been curated (severity confirmed, description finalized) and is eligible to be linked into a report via `POST /api/v1/reports/{id}/findings`.
+- **`submitted`** — the finding has been included in a report that has itself moved to `submitted` status.
+- **`triaged`** — the receiving program/vendor has acknowledged and triaged the submission (tracked for record-keeping; MORPHIA does not automate triage).
+- **`resolved`** — the underlying issue has been fixed/closed out.
+- **`rejected`** — the finding did not hold up under verification (false positive, not exploitable, out of scope).
+- **`duplicate`** — the finding was already reported by another submission.
+
+Severity is tracked independently of state via `Finding.severity` (`critical`, `high`, `medium`, `low`, `info`), so a finding's urgency and its lifecycle position are queried and filtered separately (`GET /api/v1/projects/{id}/findings?state=&severity=`).
+
+## 10. Report Generation
+
+Reports assemble one or more `report_ready`/`verified` findings into a disclosure document. Implemented in `apps/api/app/models/reports.py` and `apps/api/app/routers/reports.py`.
+
+- **Status lifecycle.** `draft → review → final → submitted → acknowledged`. A report starts as `draft` on creation (`POST /api/v1/projects/{id}/reports`) and is advanced explicitly via `PATCH /api/v1/reports/{id}`.
+- **Formats.** Every report has a `format` of `markdown`, `html`, or `json`, and can be rendered on demand via `GET /api/v1/reports/{id}/export?format=`, independent of the format it was originally created with. There is currently no PDF export — content that needs a PDF is expected to go through the Markdown/HTML export and an external renderer.
+- **HackerOne-style templates.** The Markdown/HTML export follows the structure conventional to platform disclosure reports (HackerOne, Bugcrowd, and similar programs): a summary, an impact statement, a numbered step-by-step reproduction section, affected assets/scope references, severity/CVSS-style classification, and a remediation recommendation per finding. This keeps a MORPHIA-generated report pasteable directly into a bug-bounty platform's submission form with minimal reformatting.
+- **Finding linkage.** `POST /api/v1/reports/{id}/findings` links findings to a report through the `ReportFinding` junction table. All linked findings must belong to the same project as the report, and the report generator excludes findings that are not yet verified/report-ready — a report cannot silently include an unconfirmed claim.
+- **Immutability once final.** Once a report reaches `final`/`submitted`, its content is treated as a point-in-time record; further changes to the underlying findings do not retroactively alter an already-generated report body (a new report or revision is created instead).
+
+## 11. Provider Abstraction (Design — Not Yet Implemented)
+
+**Status: this section describes the intended design. No provider adapter code exists in the repository today** — see `docs/completion-report.md` §4 for the explicit gap. `apps/worker/app/main.py` currently only receives a job from the Redis queue, logs that it was received, and stops; it does not call any LLM or execute any run step. The design below is preserved here so implementation can proceed against an agreed shape rather than being invented ad hoc later.
+
+MORPHIA is intended to never hard-code a single LLM vendor. A provider adapter interface would normalize chat/completion calls, cost accounting, and error handling across:
 
 | Provider | Notes |
 |---|---|
-| **Mock** | Deterministic, offline adapter used by default in dev/test when no provider keys are configured. Lets the full run pipeline (planning → approval → execution → evidence) be exercised in CI without network access or spend. |
-| **OpenAI** | Configured via `OPENAI_API_KEY` / `OPENAI_BASE_URL`. |
-| **OpenRouter** | Configured via `OPENROUTER_API_KEY` / `OPENROUTER_BASE_URL`; useful for model choice flexibility and cost comparison across many upstream vendors through one API. |
-| **Local model** | Configured via `LOCAL_MODEL_URL` (e.g., an Ollama-compatible endpoint at `http://localhost:11434/v1`) for self-hosted/offline model use. |
+| **Mock** | Deterministic, offline adapter intended to be the default in dev/test when no provider keys are configured, so the full run pipeline (planning → approval → execution → evidence) can be exercised in CI without network access or spend. |
+| **OpenAI** | Would be configured via `OPENAI_API_KEY` / `OPENAI_BASE_URL` (both present in `.env.example`, currently unused by any code). |
+| **OpenRouter** | Would be configured via `OPENROUTER_API_KEY` / `OPENROUTER_BASE_URL` (present in `.env.example`, currently unused); useful for model choice flexibility and cost comparison across many upstream vendors through one API. |
+| **Local model** | Would be configured via `LOCAL_MODEL_URL` (present in `.env.example`, e.g. an Ollama-compatible endpoint at `http://localhost:11434/v1`) for self-hosted/offline model use. |
 
-All adapters implement the same interface (invoke, stream, estimate-cost, classify-error) so the run engine, cost tracker, and retry logic are provider-agnostic. Adding a new provider means writing a new adapter, not touching orchestration code. Provider selection is a per-run configuration (`Run.model_config_id`) — not a global, hard-coded choice — so different runs/engagements can use different providers or models based on cost, capability, or client requirements.
+The intended contract: all adapters implement the same interface (invoke, stream, estimate-cost, classify-error) so the run engine, cost tracker, and retry logic can be provider-agnostic. Adding a new provider would mean writing a new adapter, not touching orchestration code. Provider selection would be a per-run configuration, not a global hard-coded choice, so different runs/engagements could use different providers or models based on cost, capability, or client requirements.
 
-Provider API keys are read exclusively from environment variables at process start (see `docs/security.md` §7) and are never persisted in the database, logged, or exposed to the frontend.
+Provider API keys, once this is implemented, must be read exclusively from environment variables at process start (see `docs/security.md`) and never persisted in the database, logged, or exposed to the frontend — this constraint is already reflected in how `.env.example` and `docs/completion-report.md` describe these variables even though no code consumes them yet.
 
-## 10. Deployment
+## 12. Deployment
 
 MORPHIA is designed to be **cloud-neutral** and runnable anywhere that can host PostgreSQL, Redis, and three long-running processes.
 

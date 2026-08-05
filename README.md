@@ -8,15 +8,18 @@
 
 MORPHIA organizes legitimate security research by:
 
-- Creating projects with authorized engagements and explicit scope
-- Coordinating AI agents, models, tools, and human reviewers
-- Separating assumptions from verified facts
-- Preserving evidence with provenance and integrity verification
-- Requiring human approval before sensitive actions
-- Tracking costs across providers and tools
-- Converting verified findings into responsible-disclosure reports
+- Creating projects with authorized engagements and explicit, validated scope
+- Coordinating AI agents, models, tools, and human reviewers through a run state machine with approval gates
+- Separating assumptions from verified facts via an evidence-and-findings pipeline
+- Preserving evidence with SHA-256 integrity hashing, provenance, and a verification-status lifecycle
+- Requiring human approval before sensitive actions (plan approval and action approval are distinct states in the run lifecycle)
+- Validating every target against an 8-point scope check before any tool executes — checked independently by both the API and the worker
+- Tracking findings through a lifecycle from `candidate` to `verified` to `report_ready`
+- Converting verified findings into responsible-disclosure reports, exportable as Markdown, HTML, or JSON
 
 MORPHIA is **not** an autonomous attack platform. It enforces authorization boundaries, scope validation, and human oversight at every step.
+
+**Current implementation state:** the API (auth, RBAC, projects, engagements, scope, runs, evidence, findings, reports) is built with test coverage in `apps/api/tests/`. The React frontend has all primary pages implemented. The worker is a minimal job-queue skeleton — it does not yet execute steps against a real AI provider (provider abstraction is designed, not yet implemented; see `docs/architecture.md` and `docs/completion-report.md`). Playwright end-to-end tests are scaffolded in `tests/e2e/` but have not yet been executed against a live stack.
 
 ## Tech Stack
 
@@ -98,6 +101,24 @@ See `.env.example` for the complete list. Key variables:
 
 **Never commit `.env` to source control.**
 
+## What's Implemented
+
+| Area | Status |
+|---|---|
+| Auth (register/login/logout/me), Argon2id, server-side sessions | Implemented, tested |
+| RBAC (6 roles), CSRF (double-submit), rate limiting | Implemented, tested |
+| Projects, Engagements, Scope rules + 8-point scope validator | Implemented, tested |
+| Runs (full state machine, transitions, approvals, cancel) | Implemented, tested |
+| Evidence (SHA-256 hashing, local/S3 storage, verification lifecycle) | Implemented, tested |
+| Findings (candidate → verified → report_ready lifecycle) | Implemented, tested |
+| Reports (draft → final, Markdown/HTML/JSON export) | Implemented, tested |
+| React SPA (14 pages: dashboard, projects, runs, evidence, findings, reports, workflows, approvals, audit, agents, settings) | Implemented |
+| Worker (Redis job consumer) | Skeleton only — receives and logs jobs, does not execute them |
+| AI provider adapters (mock/OpenAI/OpenRouter/local) | Designed, not yet implemented |
+| Playwright e2e suite | Scaffolded in `tests/e2e/`, not yet executed |
+
+See `docs/completion-report.md` for the full, itemized status and remaining risks.
+
 ## Architecture
 
 See `docs/architecture.md` for detailed system design.
@@ -105,16 +126,16 @@ See `docs/architecture.md` for detailed system design.
 ```
 morphia/
 ├── apps/
-│   ├── api/          # FastAPI backend
-│   ├── web/          # React frontend
-│   └── worker/       # Job processor
+│   ├── api/          # FastAPI backend (auth, projects, engagements, scope, runs, evidence, findings, reports)
+│   ├── web/          # React frontend (14 pages)
+│   └── worker/       # Redis job-queue consumer (skeleton — no provider execution yet)
 ├── packages/
-│   ├── contracts/    # Shared type definitions
-│   └── shared-types/ # Cross-package types
+│   ├── contracts/    # Shared run-state contract (run_states.ts)
+│   └── shared-types/ # Reserved for cross-package types (currently empty)
 ├── infra/docker/     # Dockerfiles
-├── tests/            # Integration & E2E tests
+├── tests/            # Integration & E2E tests (Playwright scaffolding in tests/e2e/)
 ├── docs/             # Documentation
-└── scripts/          # Operational scripts
+└── scripts/          # Operational scripts (backup/restore)
 ```
 
 ## Security
