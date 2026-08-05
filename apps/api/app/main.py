@@ -13,7 +13,8 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
 from app.core.config import get_settings
-from app.routers import health, auth, projects
+from app.middleware.csrf import CSRFMiddleware
+from app.routers import health, auth, projects, engagements, scope, runs
 
 
 logger = structlog.get_logger()
@@ -68,6 +69,7 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
     allow_headers=["*"],
 )
+app.add_middleware(CSRFMiddleware)
 
 
 # ── Error Handlers ───────────────────────────────────────
@@ -118,3 +120,6 @@ async def add_request_id(request: Request, call_next: Any) -> Any:
 app.include_router(health.router, prefix="/api", tags=["health"])
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(projects.router, prefix="/api/v1/projects", tags=["projects"])
+app.include_router(engagements.router, prefix="/api/v1", tags=["engagements"])
+app.include_router(scope.router, prefix="/api/v1", tags=["scope"])
+app.include_router(runs.router, prefix="/api/v1", tags=["runs"])
