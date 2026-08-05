@@ -14,7 +14,7 @@ from slowapi.errors import RateLimitExceeded
 
 from app.core.config import get_settings
 from app.middleware.csrf import CSRFMiddleware
-from app.routers import health, auth, projects, engagements, scope, runs
+from app.routers import health, auth, projects, engagements, scope, runs, evidence, findings, reports
 
 
 logger = structlog.get_logger()
@@ -123,3 +123,6 @@ app.include_router(projects.router, prefix="/api/v1/projects", tags=["projects"]
 app.include_router(engagements.router, prefix="/api/v1", tags=["engagements"])
 app.include_router(scope.router, prefix="/api/v1", tags=["scope"])
 app.include_router(runs.router, prefix="/api/v1", tags=["runs"])
+app.include_router(evidence.router, prefix="/api/v1", tags=["evidence"])
+app.include_router(findings.router, prefix="/api/v1", tags=["findings"])
+app.include_router(reports.router, prefix="/api/v1", tags=["reports"])
