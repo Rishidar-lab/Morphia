@@ -1,0 +1,66 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.venv/
+venv/
+env/
+
+# Node
+node_modules/
+.pnp.*
+
+# Build output
+apps/web/dist/
+apps/api/dist/
+*.js.map
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+.docker-data/
+
+# Database
+*.sql.gz
+*.sql.bak
+backups/*.sql
+backups/*.gz
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+playwright-report/
+test-results/
+
+# Logs
+*.log
+logs/
+
+# Storage (local dev artifacts)
+storage/
+uploads/
+
+# Secrets - never commit
+*.pem
+*.key
+secrets/
