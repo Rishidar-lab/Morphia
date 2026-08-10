@@ -70,6 +70,8 @@ services:
       dockerfile: infra/docker/web.Dockerfile
     ports:
       - "5173:5173"
+    environment:
+      API_PROXY_TARGET: http://api:8000
     depends_on:
       - api
     volumes:

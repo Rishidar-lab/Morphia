@@ -14,6 +14,7 @@ env/
 # Node
 node_modules/
 .pnp.*
+*.tsbuildinfo
 
 # Build output
 apps/web/dist/

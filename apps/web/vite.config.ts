@@ -12,8 +12,10 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
+      // In docker-compose the web container reaches the API via the
+      // "api" service name, not localhost — override with API_PROXY_TARGET.
       "/api": {
-        target: "http://localhost:8000",
+        target: process.env.API_PROXY_TARGET || "http://localhost:8000",
         changeOrigin: true,
       },
     },

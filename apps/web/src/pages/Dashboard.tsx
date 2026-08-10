@@ -1,10 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import type { Project } from "@/lib/types";
 
 export default function Dashboard() {
   const { data: projects, isLoading } = useQuery({
     queryKey: ["projects"],
-    queryFn: () => api.get("/api/v1/projects"),
+    queryFn: () => api.get<Project[]>("/api/v1/projects"),
   });
 
   return (

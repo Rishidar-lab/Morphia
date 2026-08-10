@@ -56,7 +56,7 @@ const DEFAULTS = {
   } as WorkerSettings,
 };
 
-function SettingsSection<T extends Record<string, unknown>>({
+function SettingsSection<T>({
   title,
   description,
   endpoint,
