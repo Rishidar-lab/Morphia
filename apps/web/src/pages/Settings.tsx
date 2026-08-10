@@ -1,4 +1,12 @@
-import { useEffect, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useId,
+  useState,
+  cloneElement,
+  isValidElement,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { api, ApiError } from "@/lib/api";
 
@@ -128,10 +136,21 @@ function Field({
   label: string;
   children: ReactNode;
 }) {
+  const id = useId();
+  // Inject the generated id into the field's control so the <label> below
+  // is actually associated with it (via htmlFor) — previously the label
+  // had no htmlFor and wasn't wrapping the control either, so screen
+  // readers had no way to connect "Organization Name" to its input.
+  const control = isValidElement(children)
+    ? cloneElement(children as ReactElement<{ id?: string }>, { id })
+    : children;
+
   return (
     <div className="grid grid-cols-3 items-center gap-3">
-      <label className="text-xs text-gray-400 col-span-1">{label}</label>
-      <div className="col-span-2">{children}</div>
+      <label htmlFor={id} className="text-xs text-gray-400 col-span-1">
+        {label}
+      </label>
+      <div className="col-span-2">{control}</div>
     </div>
   );
 }

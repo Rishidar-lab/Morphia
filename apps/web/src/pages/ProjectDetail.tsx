@@ -3,13 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { clsx } from "clsx";
 import { api, ApiError } from "@/lib/api";
-import type {
-  Engagement,
-  Project,
-  Run,
-  RunState,
-  ScopeRule,
-} from "@/lib/types";
+import type { Engagement, Project, Run, ScopeRule } from "@/lib/types";
 import { CANCELLABLE_STATES, APPROVAL_STATES, TERMINAL_STATES } from "@/lib/types";
 import { LoadingSkeleton, EmptyState, ErrorState } from "@/components/ListStates";
 import { StateBadge } from "@/components/StateBadge";
