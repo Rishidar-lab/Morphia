@@ -13,6 +13,104 @@ integrations are mock-only, and there is no production deployment
 configuration or a real backup/restore drill. Treat this document as a
 handoff checklist, not a certification of production readiness.
 
+## Addendum — 2026-08-10: worker execution path implemented, and this report's own claims verified for the first time
+
+Everything below this line was added in a follow-up session that closed gap
+#1 (AI provider integrations) and, in the process of actually running the
+system end-to-end for the first time, found and fixed several things this
+report and the code had claimed or assumed but never verified:
+
+**What changed:**
+- `apps/worker/app/providers/` — a real provider adapter layer (`mock`,
+  `openai`, `openrouter`, `local`, selected via `get_provider()`) implementing
+  the interface `docs/architecture.md` §11 described but that did not exist
+  in code before this. 8 unit tests in `apps/worker/tests/test_providers.py`.
+- `apps/api/app/routers/worker.py` — the worker-callback API that §11's
+  design implied but that was never built: `POST /api/worker/runs/{id}/claim`
+  (re-validates scope per step, per docs/architecture.md §7), `.../steps`
+  (idempotent step results), `.../transition`, all authenticated via
+  `X-Worker-Auth` (the header the CSRF middleware already special-cased,
+  unused until now). `runs.engagement_id` was added (migration
+  `9c7c1bf0c5c7`) — scope validation needs to know which engagement's rules
+  apply to a run, and nothing previously recorded that.
+- `apps/api/app/services/queue.py` — the API now actually pushes to
+  `morphia:jobs` when a run is approved into `QUEUED`. Previously nothing
+  enqueued anything; the worker's queue consumer had no producer.
+- `apps/worker/pyproject.toml` — the worker was not a packaged, installable
+  project before this (no `pyproject.toml` existed). It relied on
+  `infra/docker/worker.Dockerfile` installing the *entire API package* just
+  to get `redis`/`structlog` transitively, which also meant it silently had
+  SQLAlchemy/asyncpg/FastAPI available — in tension with `docs/security.md`
+  §5's "no direct database access." The worker now declares its own minimal
+  dependencies and the Dockerfile installs `apps/worker`, not `apps/api`.
+- End-to-end verified against a real `docker compose` stack (not a claim —
+  see below): register → project → engagement → scope rule → run → approve
+  → worker claims, calls the mock provider, reports the step, completes the
+  run. A second run against an out-of-scope target was correctly denied and
+  the run left in `FAILED` with the scope validator's reason recorded.
+
+**Pre-existing gaps found while making the above actually run**, none of
+which were specific to the provider work but all of which blocked it:
+- `apps/api/migrations/versions/` had no migration files at all —
+  `alembic upgrade head` had never been runnable. Generated the initial
+  baseline (`9c7c1bf0c5c7`) via autogenerate against a real Postgres.
+- `pip install -e ".[dev]"` for `apps/api` failed outright (setuptools
+  flat-layout package-discovery conflict between `app` and `migrations`) —
+  meaning `make build-api` had never succeeded either. Fixed via
+  `[tool.setuptools.packages.find]`.
+- `pydantic.EmailStr` (used in auth) needs `email-validator`, which was not
+  a declared dependency — every test importing `app.main` failed to collect.
+- `asyncio_default_fixture_loop_scope`/`asyncio_default_test_loop_scope` were
+  unset, so the module-level async SQLAlchemy engine and pytest-asyncio's
+  per-test event loops fought each other (`RuntimeError: ... attached to a
+  different loop`) — every DB-touching test failed.
+- The test suites' shared `_register_and_login` helpers never captured the
+  session's CSRF token, so every state-mutating request they made was
+  correctly rejected by the (working-as-designed) CSRF middleware — meaning
+  the 787→~57-and-growing API test count had never actually passed as a
+  whole against a live stack. It clearly wasn't being run in CI or anywhere
+  else before being reported as passing.
+- `ProjectResponse`/`RunResponse`/`RunEventResponse`/`ScopeRuleResponse`/
+  `EngagementResponse` typed `created_at`/`updated_at` as `str`; Pydantic v2
+  does not coerce a `datetime` into a `str` field, so every route returning
+  one of these 500'd. Retyped to `datetime`.
+- A subtler one: any handler that mutated an already-persisted row (not a
+  fresh insert) and then returned it directly — `update_finding`,
+  `update_engagement`, `update_report`, `upload_evidence`,
+  `verify_evidence`, and all of `transition_run`/`cancel_run`/`approve_run`/
+  `reject_run`/`create_run` in `runs.py` — hit
+  `MissingGreenlet: greenlet_spawn has not been called` when serializing
+  `updated_at`, because SQLAlchemy's async engine does not eagerly refresh
+  `onupdate=func.now()` columns after an `UPDATE` the way it does after an
+  `INSERT`. Fixed by adding `await db.refresh(obj)` before returning in each
+  of those handlers.
+- A correctness bug in the new worker-callback code itself, caught only by
+  actually testing the scope-denial path rather than just the happy path:
+  `claim_run` wrote the `FAILED` transition and its `RunEvent`, then raised
+  an `HTTPException` — which `get_db()`'s dependency-generator rolls back on
+  any exception, silently discarding the failure record and leaving the run
+  stuck at `QUEUED` forever. Fixed with an explicit `await db.commit()`
+  before raising in both of `claim_run`'s failure paths.
+- `docker-compose.yml` shipped `.env.example`'s `localhost` values for
+  `DATABASE_URL`/`REDIS_URL` into the `api`/`worker` containers, which
+  cannot resolve `localhost` to the `postgres`/`redis` services on the
+  compose network — `docker compose up --build` (the README's own quick
+  start) had never actually produced a working stack. Added compose-level
+  environment overrides for the in-network hostnames, plus `API_BASE_URL`
+  for the worker to reach the api service.
+
+None of this changes the honesty framing above: it is additive verification
+of claims this document and the code were already making, not a retroactive
+"actually it always worked." See git history for the exact diffs.
+
+**Still not done** (unchanged from the original report except where noted):
+Playwright e2e still not executed; production deployment config still
+absent; backup/restore still unverified; the frontend/backend enum drift
+(§4 item 6, original) is unchanged — the worker/provider work did not touch
+`apps/web`. Worker test coverage now exists for the provider layer (8 tests)
+but not for `main.py`'s execution loop or `api_client.py` — no HTTP-level
+tests were added there.
+
 ## 1. Commit Summary
 
 | # | Commit | Type | Summary |

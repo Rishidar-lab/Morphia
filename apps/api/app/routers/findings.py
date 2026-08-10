@@ -283,6 +283,7 @@ async def update_finding(
         db.add(audit)
         await db.flush()
 
+    await db.refresh(finding)
     return finding
 
 

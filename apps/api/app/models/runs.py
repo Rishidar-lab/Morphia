@@ -87,6 +87,12 @@ class Run(Base):
         Enum(RunState, native_enum=False), nullable=False, default=RunState.DRAFT
     )
     title: Mapped[str] = mapped_column(String(300), nullable=False, default="")
+    # Which engagement's scope this run executes against. Required before a run can
+    # leave DRAFT/PLANNING for QUEUED — the worker's scope re-check (architecture.md §7)
+    # has nothing to validate against without it.
+    engagement_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("engagements.id"), nullable=True, index=True
+    )
     plan: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     agent_profile: Mapped[str] = mapped_column(String(100), nullable=True)
     model_config_id: Mapped[str | None] = mapped_column(String(36), nullable=True)

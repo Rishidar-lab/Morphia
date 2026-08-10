@@ -19,7 +19,7 @@ MORPHIA organizes legitimate security research by:
 
 MORPHIA is **not** an autonomous attack platform. It enforces authorization boundaries, scope validation, and human oversight at every step.
 
-**Current implementation state:** the API (auth, RBAC, projects, engagements, scope, runs, evidence, findings, reports) is built with test coverage in `apps/api/tests/`. The React frontend has all primary pages implemented. The worker is a minimal job-queue skeleton — it does not yet execute steps against a real AI provider (provider abstraction is designed, not yet implemented; see `docs/architecture.md` and `docs/completion-report.md`). Playwright end-to-end tests are scaffolded in `tests/e2e/` but have not yet been executed against a live stack.
+**Current implementation state:** the API (auth, RBAC, projects, engagements, scope, runs, evidence, findings, reports, worker-callback endpoints) is built with test coverage in `apps/api/tests/`. The React frontend has all primary pages implemented. The worker claims run steps from the queue, re-validates scope per step, and executes them via a pluggable AI provider (mock/OpenAI/OpenRouter/local — see `docs/architecture.md` §11); this has been verified end-to-end against a live `docker compose` stack, including the scope-denial path. Playwright end-to-end tests are scaffolded in `tests/e2e/` but have not yet been executed against a live stack, and there is no production deployment configuration yet (see `docs/completion-report.md`).
 
 ## Tech Stack
 
@@ -113,8 +113,9 @@ See `.env.example` for the complete list. Key variables:
 | Findings (candidate → verified → report_ready lifecycle) | Implemented, tested |
 | Reports (draft → final, Markdown/HTML/JSON export) | Implemented, tested |
 | React SPA (14 pages: dashboard, projects, runs, evidence, findings, reports, workflows, approvals, audit, agents, settings) | Implemented |
-| Worker (Redis job consumer) | Skeleton only — receives and logs jobs, does not execute them |
-| AI provider adapters (mock/OpenAI/OpenRouter/local) | Designed, not yet implemented |
+| Worker (claims run steps via worker-callback API, executes via provider, reports results) | Implemented, verified end-to-end against a live stack |
+| AI provider adapters (mock/OpenAI/OpenRouter/local) | Implemented, tested (mock; OpenAI-compatible ones share one HTTP path) |
+| Worker-callback API (`/api/worker/runs/{id}/claim`\|`steps`\|`transition`) | Implemented — per-step scope re-validation, worker-attributed audit trail |
 | Playwright e2e suite | Scaffolded in `tests/e2e/`, not yet executed |
 
 See `docs/completion-report.md` for the full, itemized status and remaining risks.

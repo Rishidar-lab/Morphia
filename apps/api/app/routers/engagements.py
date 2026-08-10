@@ -1,6 +1,6 @@
 """Engagement management routes, scoped within a project."""
 
-from datetime import date
+from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -42,8 +42,8 @@ class EngagementResponse(BaseModel):
     end_date: date | None
     status: str
     notes: str
-    created_at: str
-    updated_at: str
+    created_at: datetime
+    updated_at: datetime
 
     model_config = {"from_attributes": True}
 
@@ -141,4 +141,5 @@ async def update_engagement(
         setattr(engagement, field_name, value)
 
     await db.flush()
+    await db.refresh(engagement)
     return engagement

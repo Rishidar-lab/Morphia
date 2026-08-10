@@ -1,4 +1,4 @@
-.PHONY: dev dev-api dev-web dev-worker build test test-api test-web test-e2e lint typecheck migrate seed backup restore clean help
+.PHONY: dev dev-api dev-web dev-worker build test test-api test-web test-worker test-e2e lint typecheck migrate seed backup restore clean help
 
 # ── Development ───────────────────────────────────────────
 dev: ## Start all services with Docker Compose
@@ -14,19 +14,25 @@ dev-worker: ## Start worker process locally
 	cd apps/worker && python -m app.main
 
 # ── Build ─────────────────────────────────────────────────
-build: build-api build-web ## Build all
+build: build-api build-worker build-web ## Build all
 
 build-api: ## Build API
 	cd apps/api && pip install -e ".[dev]"
+
+build-worker: ## Build worker
+	cd apps/worker && pip install -e ".[dev]"
 
 build-web: ## Build frontend for production
 	cd apps/web && npm run build
 
 # ── Test ──────────────────────────────────────────────────
-test: test-api test-web ## Run all tests
+test: test-api test-worker test-web ## Run all tests
 
 test-api: ## Run API tests
 	cd apps/api && python -m pytest tests/ -v
+
+test-worker: ## Run worker tests
+	cd apps/worker && python -m pytest tests/ -v
 
 test-web: ## Run frontend tests
 	cd apps/web && npm run test
@@ -37,6 +43,7 @@ test-e2e: ## Run end-to-end browser tests
 # ── Code Quality ──────────────────────────────────────────
 lint: ## Lint all code
 	cd apps/api && python -m ruff check .
+	cd apps/worker && python -m ruff check .
 	cd apps/web && npm run lint
 
 typecheck: ## Type-check all code

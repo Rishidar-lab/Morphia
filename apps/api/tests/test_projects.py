@@ -30,6 +30,7 @@ async def _register_and_login(client: AsyncClient, email: str) -> None:
     )
     login_resp = await client.post("/api/auth/login", json={"email": email, "password": PASSWORD})
     assert login_resp.status_code == 200
+    client.headers["X-CSRF-Token"] = login_resp.json()["csrfToken"]
 
 
 @pytest.mark.asyncio

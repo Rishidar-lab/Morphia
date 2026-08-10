@@ -1,5 +1,7 @@
 """Scope rule management routes, scoped within an engagement."""
 
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -31,7 +33,7 @@ class ScopeRuleResponse(BaseModel):
     pattern: str
     is_wildcard: bool
     notes: str
-    created_at: str
+    created_at: datetime
 
     model_config = {"from_attributes": True}
 

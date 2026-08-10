@@ -157,6 +157,7 @@ async def upload_evidence(
     )
     db.add(audit)
     await db.flush()
+    await db.refresh(evidence)
 
     return evidence
 
@@ -226,5 +227,6 @@ async def verify_evidence(
     )
     db.add(audit)
     await db.flush()
+    await db.refresh(evidence)
 
     return evidence

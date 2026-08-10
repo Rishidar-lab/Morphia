@@ -5,6 +5,8 @@ source of truth defined in app.models.runs) and every transition writes
 a RunEvent for auditability.
 """
 
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -22,6 +24,7 @@ from app.models.runs import (
     validate_transition,
 )
 from app.routers.auth import get_current_user
+from app.services.queue import enqueue_run_job
 
 router = APIRouter()
 
@@ -30,6 +33,7 @@ router = APIRouter()
 class CreateRunRequest(BaseModel):
     title: str = Field(default="", max_length=300)
     agent_profile: str | None = Field(default=None, max_length=100)
+    engagement_id: str | None = Field(default=None, max_length=36)
     plan: dict | None = None
 
 
@@ -45,14 +49,15 @@ class DecisionRequest(BaseModel):
 class RunResponse(BaseModel):
     id: str
     project_id: str
+    engagement_id: str | None
     state: RunState
     title: str
     plan: dict | None
     agent_profile: str | None
     failure_reason: str
     created_by: str
-    created_at: str
-    updated_at: str
+    created_at: datetime
+    updated_at: datetime
 
     model_config = {"from_attributes": True}
 
@@ -65,7 +70,7 @@ class RunEventResponse(BaseModel):
     to_state: str | None
     actor_id: str | None
     payload: dict | None
-    created_at: str
+    created_at: datetime
 
     model_config = {"from_attributes": True}
 
@@ -132,6 +137,7 @@ async def create_run(
         project_id=project_id,
         title=body.title,
         agent_profile=body.agent_profile,
+        engagement_id=body.engagement_id,
         plan=body.plan,
         created_by=user.id,
         state=RunState.DRAFT,
@@ -143,6 +149,7 @@ async def create_run(
         db, run, event_type="run.created", from_state=None, to_state=RunState.DRAFT, actor_id=user.id
     )
 
+    await db.refresh(run)
     return run
 
 
@@ -206,6 +213,7 @@ async def transition_run(
         payload={"reason": body.reason} if body.reason else None,
     )
 
+    await db.refresh(run)
     return run
 
 
@@ -241,6 +249,7 @@ async def cancel_run(
         actor_id=user.id,
     )
 
+    await db.refresh(run)
     return run
 
 
@@ -291,6 +300,10 @@ async def approve_run(
         payload={"decision": "approved", "justification": body.justification},
     )
 
+    if next_state == RunState.QUEUED:
+        await enqueue_run_job(run.id)
+
+    await db.refresh(run)
     return run
 
 
@@ -341,6 +354,7 @@ async def reject_run(
         payload={"decision": "rejected", "justification": body.justification},
     )
 
+    await db.refresh(run)
     return run
 
 

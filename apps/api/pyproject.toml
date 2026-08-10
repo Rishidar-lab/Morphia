@@ -10,7 +10,7 @@ dependencies = [
     "asyncpg>=0.29.0",
     "psycopg2-binary>=2.9.9",
     "alembic>=1.13.0",
-    "pydantic>=2.7.0",
+    "pydantic[email]>=2.7.0",
     "pydantic-settings>=2.3.0",
     "argon2-cffi>=23.1.0",
     "python-multipart>=0.0.9",
@@ -40,6 +40,9 @@ dev = [
 requires = ["setuptools>=68.0"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools.packages.find]
+include = ["app*"]
+
 [tool.ruff]
 target-version = "py311"
 line-length = 100
@@ -56,4 +59,6 @@ disallow_untyped_defs = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
 testpaths = ["tests"]

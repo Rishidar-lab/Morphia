@@ -121,7 +121,8 @@ async def test_logout_invalidates_session(client: AsyncClient):
         "/api/auth/register",
         json={"email": email, "password": TEST_PASSWORD, "display_name": TEST_DISPLAY_NAME},
     )
-    await client.post("/api/auth/login", json={"email": email, "password": TEST_PASSWORD})
+    login_resp = await client.post("/api/auth/login", json={"email": email, "password": TEST_PASSWORD})
+    client.headers["X-CSRF-Token"] = login_resp.json()["csrfToken"]
 
     logout_resp = await client.post("/api/auth/logout")
     assert logout_resp.status_code == 200

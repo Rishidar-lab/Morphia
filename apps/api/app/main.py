@@ -1,27 +1,33 @@
 """MORPHIA API — FastAPI application entry point."""
 
-import structlog
-from contextlib import asynccontextmanager
 from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from typing import Any
 
+import structlog
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
 from app.core.config import get_settings
+from app.core.limiter import limiter
 from app.middleware.csrf import CSRFMiddleware
-from app.routers import health, auth, projects, engagements, scope, runs, evidence, findings, reports
-
+from app.routers import (
+    auth,
+    engagements,
+    evidence,
+    findings,
+    health,
+    projects,
+    reports,
+    runs,
+    scope,
+    worker,
+)
 
 logger = structlog.get_logger()
 settings = get_settings()
-
-# ── Rate Limiter ──────────────────────────────────────────
-limiter = Limiter(key_func=get_remote_address)
 
 
 @asynccontextmanager
@@ -126,3 +132,4 @@ app.include_router(runs.router, prefix="/api/v1", tags=["runs"])
 app.include_router(evidence.router, prefix="/api/v1", tags=["evidence"])
 app.include_router(findings.router, prefix="/api/v1", tags=["findings"])
 app.include_router(reports.router, prefix="/api/v1", tags=["reports"])
+app.include_router(worker.router, prefix="/api/worker", tags=["worker"])

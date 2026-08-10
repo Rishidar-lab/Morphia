@@ -272,22 +272,32 @@ Reports assemble one or more `report_ready`/`verified` findings into a disclosur
 - **Finding linkage.** `POST /api/v1/reports/{id}/findings` links findings to a report through the `ReportFinding` junction table. All linked findings must belong to the same project as the report, and the report generator excludes findings that are not yet verified/report-ready — a report cannot silently include an unconfirmed claim.
 - **Immutability once final.** Once a report reaches `final`/`submitted`, its content is treated as a point-in-time record; further changes to the underlying findings do not retroactively alter an already-generated report body (a new report or revision is created instead).
 
-## 11. Provider Abstraction (Design — Not Yet Implemented)
+## 11. Provider Abstraction
 
-**Status: this section describes the intended design. No provider adapter code exists in the repository today** — see `docs/completion-report.md` §4 for the explicit gap. `apps/worker/app/main.py` currently only receives a job from the Redis queue, logs that it was received, and stops; it does not call any LLM or execute any run step. The design below is preserved here so implementation can proceed against an agreed shape rather than being invented ad hoc later.
-
-MORPHIA is intended to never hard-code a single LLM vendor. A provider adapter interface would normalize chat/completion calls, cost accounting, and error handling across:
+**Status (2026-08-10): implemented.** `apps/worker/app/providers/` defines `ProviderAdapter` (`invoke(messages) -> ProviderResponse`, raising `ProviderError` on failure) and four adapters: `MockProvider`, `OpenAIProvider`, `OpenRouterProvider`, `LocalProvider` — the latter three share an `OpenAICompatibleProvider` base since all three speak the OpenAI Chat Completions wire format. `get_provider()` in `apps/worker/app/providers/__init__.py` selects one: an explicit `MORPHIA_PROVIDER` env var wins, otherwise the first provider with a configured API key wins, otherwise `mock`.
 
 | Provider | Notes |
 |---|---|
-| **Mock** | Deterministic, offline adapter intended to be the default in dev/test when no provider keys are configured, so the full run pipeline (planning → approval → execution → evidence) can be exercised in CI without network access or spend. |
-| **OpenAI** | Would be configured via `OPENAI_API_KEY` / `OPENAI_BASE_URL` (both present in `.env.example`, currently unused by any code). |
-| **OpenRouter** | Would be configured via `OPENROUTER_API_KEY` / `OPENROUTER_BASE_URL` (present in `.env.example`, currently unused); useful for model choice flexibility and cost comparison across many upstream vendors through one API. |
-| **Local model** | Would be configured via `LOCAL_MODEL_URL` (present in `.env.example`, e.g. an Ollama-compatible endpoint at `http://localhost:11434/v1`) for self-hosted/offline model use. |
+| **Mock** | Deterministic, offline adapter — the default when no provider keys are configured, so the full run pipeline (planning → approval → execution → evidence) can be exercised in CI without network access or spend. |
+| **OpenAI** | `OPENAI_API_KEY` / `OPENAI_BASE_URL` / `OPENAI_MODEL`. |
+| **OpenRouter** | `OPENROUTER_API_KEY` / `OPENROUTER_BASE_URL` / `OPENROUTER_MODEL`. |
+| **Local model** | `LOCAL_MODEL_URL` / `LOCAL_MODEL_NAME` (Ollama-compatible; no API key). |
 
-The intended contract: all adapters implement the same interface (invoke, stream, estimate-cost, classify-error) so the run engine, cost tracker, and retry logic can be provider-agnostic. Adding a new provider would mean writing a new adapter, not touching orchestration code. Provider selection would be a per-run configuration, not a global hard-coded choice, so different runs/engagements could use different providers or models based on cost, capability, or client requirements.
+All adapters implement the same interface so the worker's execution loop never branches on which vendor is configured; adding a new provider means writing a new adapter class, not touching `apps/worker/app/main.py`. Provider selection today is process-wide (one `MORPHIA_PROVIDER` per worker process), not yet per-run — the original per-run/per-engagement selection design is not implemented and would need a `provider` field threaded through `Run`/`RunStep` if wanted later.
 
-Provider API keys, once this is implemented, must be read exclusively from environment variables at process start (see `docs/security.md`) and never persisted in the database, logged, or exposed to the frontend — this constraint is already reflected in how `.env.example` and `docs/completion-report.md` describe these variables even though no code consumes them yet.
+Provider API keys are read exclusively from environment variables in `apps/worker/app/config.py` at process start and never persisted, logged, or exposed to the frontend — the worker has no database access to persist them into even by mistake (docs/security.md §5).
+
+**Scope of what "execution" means here:** a provider call is an LLM chat/completion invocation, not tool execution against real security tools (nuclei, subfinder, etc.). A `RunStep`'s `output_data` holds the model's text response plus token/cost accounting; it is not evidence that a scan actually ran. Real tool-adapter execution (docs/security.md's "Tool adapters run with the minimum OS privileges required...") remains a separate, unbuilt feature.
+
+**The claim/execute/report loop:** the worker has no direct database access (docs/security.md §5), so every fact about a run — and every scope decision — is mediated by three worker-authenticated endpoints in `apps/api/app/routers/worker.py`, all requiring the `X-Worker-Auth: <WORKER_AUTH_SECRET>` header:
+
+- `POST /api/worker/runs/{id}/claim` — first call on a `QUEUED` run transitions it to `RUNNING`; each call advances to the next unexecuted entry in `run.plan["steps"]` (a list of `{action, target, prompt}` objects — see below), independently re-validating scope for that specific target via `ScopeValidator` before returning it (docs/architecture.md §7's "checked independently by both the API and the worker" — the worker's checkpoint is this endpoint, not a separate in-process check, since the worker has no DB access to check against directly). Returns `done: true` once every plan step has a recorded `RunStep`. A scope denial or a run with no `engagement_id` transitions the run to `FAILED` with a reason and returns 4xx — and commits that transition explicitly before raising, since `get_db()`'s dependency rolls back the session on any exception that escapes the handler.
+- `POST /api/worker/runs/{id}/steps` — records a `RunStep`, idempotent on `idempotency_key` (`"{run_id}:{step_number}"`).
+- `POST /api/worker/runs/{id}/transition` — worker-attributed state transitions (`actor_id="worker:{worker_id}"`, distinct from human actor ids per docs/security.md §1.10), through the same `validate_transition` table as the user-facing endpoint.
+
+**The `run.plan` contract:** `Run.plan` (JSON) is expected to contain `{"steps": [{"action": str, "target": str, "prompt": str}, ...]}`. `Run.engagement_id` (added in migration `9c7c1bf0c5c7`) determines which engagement's scope rules apply — nothing else on `Run` recorded this before, and `ScopeValidator.validate_target` requires it explicitly. There is no schema validation of `plan`'s shape beyond `.get()` calls with defaults; a malformed plan is read as zero steps, not an error.
+
+**API-side enqueue:** `apps/api/app/services/queue.py` pushes `{"run_id": ...}` onto the `morphia:jobs` Redis list when `POST /runs/{id}/approve` transitions a run into `QUEUED`. Redis carries only the run id — everything else is re-read through the claim endpoint, so a flushed Redis queue at worst stalls an approved run until it's re-enqueued, never loses data (matches the "not a system of record" framing in §"Queue/cache" above).
 
 ## 12. Deployment
 

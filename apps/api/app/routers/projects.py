@@ -1,5 +1,7 @@
 """Project management routes."""
 
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -24,8 +26,8 @@ class ProjectResponse(BaseModel):
     description: str
     status: str
     owner_id: str
-    created_at: str
-    updated_at: str
+    created_at: datetime
+    updated_at: datetime
 
     model_config = {"from_attributes": True}
 

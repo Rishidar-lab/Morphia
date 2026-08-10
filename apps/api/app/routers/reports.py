@@ -272,6 +272,7 @@ async def update_report(
         setattr(report, field_name, value)
 
     await db.flush()
+    await db.refresh(report)
     return report
 
 
