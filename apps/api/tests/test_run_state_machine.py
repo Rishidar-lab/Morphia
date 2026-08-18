@@ -1,13 +1,12 @@
 """Run state machine transition validation tests."""
 
-import pytest
 from app.models.runs import (
+    APPROVAL_STATES,
+    CANCELLABLE_STATES,
+    LEGAL_TRANSITIONS,
+    TERMINAL_STATES,
     RunState,
     validate_transition,
-    LEGAL_TRANSITIONS,
-    CANCELLABLE_STATES,
-    APPROVAL_STATES,
-    TERMINAL_STATES,
 )
 
 

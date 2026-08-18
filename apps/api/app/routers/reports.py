@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -156,7 +156,9 @@ async def _get_linked_findings(report_id: str, db: AsyncSession) -> list[Finding
     return list(result.scalars().all())
 
 
-async def _get_evidence_for_findings(finding_ids: list[str], db: AsyncSession) -> list[EvidenceArtifact]:
+async def _get_evidence_for_findings(
+    finding_ids: list[str], db: AsyncSession
+) -> list[EvidenceArtifact]:
     """Evidence is not directly linked to findings in the schema, so for report
     export we surface evidence via FindingVerification.evidence_ids referenced
     by the linked findings' verification records."""
@@ -279,12 +281,12 @@ async def update_report(
 @router.get("/reports/{report_id}/export")
 async def export_report(
     report_id: str,
-    format: str = "markdown",
+    export_format: str = Query(default="markdown", alias="format"),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> Response:
     """Export a report as markdown, html, or json."""
-    if format not in REPORT_FORMATS:
+    if export_format not in REPORT_FORMATS:
         raise HTTPException(
             status_code=422, detail=f"format must be one of: {sorted(REPORT_FORMATS)}."
         )
@@ -300,15 +302,15 @@ async def export_report(
         target_type="report",
         target_id=report.id,
         action="report.export",
-        metadata_json={"format": format},
+        metadata_json={"format": export_format},
     )
     db.add(audit)
     await db.flush()
 
-    if format == "markdown":
+    if export_format == "markdown":
         content = _generator.generate_markdown(report, findings, evidence)
         return Response(content=content, media_type="text/markdown")
-    if format == "html":
+    if export_format == "html":
         content = _generator.generate_html(report, findings, evidence)
         return Response(content=content, media_type="text/html")
 
@@ -316,7 +318,9 @@ async def export_report(
     return Response(content=content, media_type="application/json")
 
 
-@router.post("/reports/{report_id}/findings", response_model=list[ReportFindingResponse], status_code=201)
+@router.post(
+    "/reports/{report_id}/findings", response_model=list[ReportFindingResponse], status_code=201
+)
 async def link_findings(
     report_id: str,
     body: LinkFindingsRequest,
@@ -327,7 +331,9 @@ async def link_findings(
     report = await _get_report_with_ownership(report_id, user, db)
 
     findings_result = await db.execute(
-        select(Finding).where(Finding.id.in_(body.finding_ids), Finding.project_id == report.project_id)
+        select(Finding).where(
+            Finding.id.in_(body.finding_ids), Finding.project_id == report.project_id
+        )
     )
     found_findings = {f.id for f in findings_result.scalars().all()}
     missing = set(body.finding_ids) - found_findings
@@ -341,7 +347,7 @@ async def link_findings(
             ReportFinding.report_id == report_id, ReportFinding.finding_id.in_(body.finding_ids)
         )
     )
-    already_linked = {row for row in existing_result.scalars().all()}
+    already_linked = set(existing_result.scalars().all())
 
     created: list[ReportFinding] = []
     for finding_id in body.finding_ids:

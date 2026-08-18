@@ -32,6 +32,7 @@ async def readiness(db: AsyncSession = Depends(get_db)) -> dict[str, object]:
     # Redis check
     try:
         import redis.asyncio as aioredis
+
         r = aioredis.from_url(settings.redis_url)
         await r.ping()
         checks["redis"] = "ok"

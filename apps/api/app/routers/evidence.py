@@ -120,7 +120,9 @@ async def upload_evidence(
         try:
             parsed_acquisition_timestamp = datetime.fromisoformat(acquisition_timestamp)
         except ValueError:
-            raise HTTPException(status_code=422, detail="Invalid acquisition_timestamp format.")
+            raise HTTPException(
+                status_code=422, detail="Invalid acquisition_timestamp format."
+            ) from None
 
     evidence = EvidenceArtifact(
         project_id=project_id,

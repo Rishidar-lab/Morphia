@@ -1,6 +1,6 @@
 """Authentication routes: register, login, logout, me."""
 
-from fastapi import APIRouter, Depends, HTTPException, Response, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,13 +8,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.security import (
-    hash_password,
-    verify_password,
-    generate_session_token,
     generate_csrf_token,
+    generate_session_token,
+    hash_password,
     session_expiry,
+    verify_password,
 )
-from app.models.auth import User, Session
+from app.models.auth import Session, User
 
 router = APIRouter()
 settings = get_settings()
@@ -45,9 +45,7 @@ class UserResponse(BaseModel):
 GENERIC_AUTH_ERROR = "Invalid email or password."
 
 
-async def get_current_user(
-    request: Request, db: AsyncSession = Depends(get_db)
-) -> User:
+async def get_current_user(request: Request, db: AsyncSession = Depends(get_db)) -> User:
     """Extract and validate the session from cookie or Authorization header."""
     token = request.cookies.get("sid")
     if not token:
@@ -58,15 +56,15 @@ async def get_current_user(
     if not token:
         raise HTTPException(status_code=401, detail="Authentication required.")
 
-    result = await db.execute(
+    session_result = await db.execute(
         select(Session).where(Session.token == token, Session.is_valid())
     )
-    session = result.scalar_one_or_none()
+    session = session_result.scalar_one_or_none()
     if not session:
         raise HTTPException(status_code=401, detail="Session expired or invalid.")
 
-    result = await db.execute(select(User).where(User.id == session.user_id))
-    user = result.scalar_one_or_none()
+    user_result = await db.execute(select(User).where(User.id == session.user_id))
+    user: User | None = user_result.scalar_one_or_none()
     if not user or not user.is_active:
         raise HTTPException(status_code=401, detail="Account is inactive.")
 

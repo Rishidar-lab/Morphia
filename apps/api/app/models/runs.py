@@ -2,27 +2,30 @@
 
 import enum
 from datetime import datetime
+
 from sqlalchemy import (
+    JSON,
     DateTime,
     Enum,
     ForeignKey,
     Integer,
     String,
     Text,
-    JSON,
     func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from app.core.database import Base
 from app.models.auth import generate_uuid
 
 
-class RunState(str, enum.Enum):
+class RunState(enum.StrEnum):
     """Canonical run states — shared between backend and frontend.
 
     This is the SINGLE SOURCE OF TRUTH for run states.
     The frontend must derive its state types from this enum.
     """
+
     DRAFT = "DRAFT"
     PLANNING = "PLANNING"
     AWAITING_PLAN_APPROVAL = "AWAITING_PLAN_APPROVAL"
@@ -59,8 +62,12 @@ LEGAL_TRANSITIONS: dict[RunState, set[RunState]] = {
 
 # States where cancel is valid
 CANCELLABLE_STATES = {
-    RunState.DRAFT, RunState.PLANNING, RunState.AWAITING_PLAN_APPROVAL,
-    RunState.QUEUED, RunState.RUNNING, RunState.AWAITING_ACTION_APPROVAL,
+    RunState.DRAFT,
+    RunState.PLANNING,
+    RunState.AWAITING_PLAN_APPROVAL,
+    RunState.QUEUED,
+    RunState.RUNNING,
+    RunState.AWAITING_ACTION_APPROVAL,
     RunState.PAUSED,
 }
 
@@ -97,9 +104,7 @@ class Run(Base):
     agent_profile: Mapped[str] = mapped_column(String(100), nullable=True)
     model_config_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     failure_reason: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    created_by: Mapped[str] = mapped_column(
-        String(36), ForeignKey("users.id"), nullable=False
-    )
+    created_by: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -107,8 +112,12 @@ class Run(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
 
-    steps: Mapped[list["RunStep"]] = relationship(back_populates="run", cascade="all, delete-orphan")
-    events: Mapped[list["RunEvent"]] = relationship(back_populates="run", cascade="all, delete-orphan")
+    steps: Mapped[list["RunStep"]] = relationship(
+        back_populates="run", cascade="all, delete-orphan"
+    )
+    events: Mapped[list["RunEvent"]] = relationship(
+        back_populates="run", cascade="all, delete-orphan"
+    )
 
 
 class RunStep(Base):
@@ -159,9 +168,13 @@ class ApprovalRequest(Base):
         String(36), ForeignKey("runs.id", ondelete="CASCADE"), nullable=False, index=True
     )
     approval_type: Mapped[str] = mapped_column(String(50), nullable=False)  # plan, action
-    status: Mapped[str] = mapped_column(String(50), nullable=False, default="pending")  # pending, approved, rejected
+    status: Mapped[str] = mapped_column(
+        String(50), nullable=False, default="pending"
+    )  # pending, approved, rejected
     requested_by: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
-    decided_by: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
+    decided_by: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id"), nullable=True
+    )
     justification: Mapped[str] = mapped_column(Text, nullable=False, default="")
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(

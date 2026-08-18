@@ -3,9 +3,9 @@
 from datetime import datetime
 
 from sqlalchemy import (
+    JSON,
     DateTime,
     ForeignKey,
-    JSON,
     String,
     Text,
     func,
@@ -14,7 +14,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.models.auth import generate_uuid
-
 
 # Canonical severity values.
 FINDING_SEVERITIES = {"critical", "high", "medium", "low", "info"}
@@ -57,8 +56,12 @@ class Finding(Base):
     security_impact: Mapped[str] = mapped_column(Text, nullable=False, default="")
     uncertainty: Mapped[str] = mapped_column(Text, nullable=False, default="")
 
-    severity: Mapped[str] = mapped_column(String(20), nullable=False)  # critical, high, medium, low, info
-    suggested_severity: Mapped[str | None] = mapped_column(String(20), nullable=True)  # unconfirmed, model-suggested
+    severity: Mapped[str] = mapped_column(
+        String(20), nullable=False
+    )  # critical, high, medium, low, info
+    suggested_severity: Mapped[str | None] = mapped_column(
+        String(20), nullable=True
+    )  # unconfirmed, model-suggested
 
     cwe_id: Mapped[str | None] = mapped_column(String(20), nullable=True)
     cvss_vector: Mapped[str | None] = mapped_column(String(200), nullable=True)
@@ -69,7 +72,9 @@ class Finding(Base):
     state: Mapped[str] = mapped_column(String(50), nullable=False, default="candidate")
 
     creator_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
-    reviewer_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
+    reviewer_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id"), nullable=True
+    )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
@@ -93,9 +98,13 @@ class FindingVerification(Base):
     verifier_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
 
     method: Mapped[str] = mapped_column(String(200), nullable=False, default="")
-    result: Mapped[str] = mapped_column(String(50), nullable=False)  # confirmed, denied, inconclusive
+    result: Mapped[str] = mapped_column(
+        String(50), nullable=False
+    )  # confirmed, denied, inconclusive
     notes: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    evidence_ids: Mapped[list | None] = mapped_column(JSON, nullable=True)  # list of evidence artifact IDs
+    evidence_ids: Mapped[list | None] = mapped_column(
+        JSON, nullable=True
+    )  # list of evidence artifact IDs
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()

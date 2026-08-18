@@ -1,7 +1,7 @@
 """Project route tests: create, list, get, ownership enforcement."""
 
 import pytest
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 
 from app.core.database import async_session_factory
@@ -58,7 +58,9 @@ async def test_list_projects_only_shows_owned(client: AsyncClient):
 
     # A second, distinct user should not see the first user's project.
     other_client_transport = ASGITransport(app=app)
-    async with AsyncClient(transport=other_client_transport, base_url="http://test") as other_client:
+    async with AsyncClient(
+        transport=other_client_transport, base_url="http://test"
+    ) as other_client:
         await _register_and_login(other_client, "project-owner-3@example.com")
         other_list = await other_client.get("/api/v1/projects/")
         assert other_list.status_code == 200
@@ -88,7 +90,9 @@ async def test_403_when_accessing_another_users_project(client: AsyncClient):
     project_id = create_resp.json()["id"]
 
     other_client_transport = ASGITransport(app=app)
-    async with AsyncClient(transport=other_client_transport, base_url="http://test") as other_client:
+    async with AsyncClient(
+        transport=other_client_transport, base_url="http://test"
+    ) as other_client:
         await _register_and_login(other_client, "project-owner-6@example.com")
         forbidden_resp = await other_client.get(f"/api/v1/projects/{project_id}")
         assert forbidden_resp.status_code == 403

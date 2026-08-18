@@ -49,11 +49,19 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "S", "B", "A", "C4", "T20"]
-ignore = ["S101"]  # allow assert in tests
+ignore = ["E501", "S101"]  # line wrapping and test asserts are handled separately
+
+[tool.ruff.lint.per-file-ignores]
+"app/routers/*.py" = ["B008"]  # FastAPI dependencies use callable defaults by design
+"app/middleware/rbac.py" = ["B008"]
+"app/seed.py" = ["T201"]  # CLI progress output is intentional
+"tests/*.py" = ["S105", "S108"]  # test-only credentials and disposable test resources
 
 [tool.mypy]
 python_version = "3.11"
 strict = true
+# JSON payloads are intentionally schemaless at provider/evidence boundaries.
+disable_error_code = ["type-arg"]
 warn_return_any = true
 disallow_untyped_defs = true
 

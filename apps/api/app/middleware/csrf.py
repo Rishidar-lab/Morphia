@@ -63,7 +63,10 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         if not csrf_header:
             return JSONResponse(
                 status_code=403,
-                content={"code": "CSRF_TOKEN_MISSING", "message": "X-CSRF-Token header is required."},
+                content={
+                    "code": "CSRF_TOKEN_MISSING",
+                    "message": "X-CSRF-Token header is required.",
+                },
             )
 
         async with async_session_factory() as db:

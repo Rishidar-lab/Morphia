@@ -3,9 +3,9 @@
 from datetime import datetime
 
 from sqlalchemy import (
+    JSON,
     DateTime,
     ForeignKey,
-    JSON,
     String,
     Text,
     func,
@@ -14,7 +14,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.models.auth import generate_uuid
-
 
 # Canonical lifecycle states for Report.status.
 REPORT_STATUSES = {"draft", "review", "final", "submitted", "acknowledged"}

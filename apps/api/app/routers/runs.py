@@ -16,11 +16,11 @@ from app.core.database import get_db
 from app.models.auth import User
 from app.models.domain import Project
 from app.models.runs import (
+    TERMINAL_STATES,
     ApprovalRequest,
     Run,
     RunEvent,
     RunState,
-    TERMINAL_STATES,
     validate_transition,
 )
 from app.routers.auth import get_current_user
@@ -146,7 +146,12 @@ async def create_run(
     await db.flush()
 
     await _record_event(
-        db, run, event_type="run.created", from_state=None, to_state=RunState.DRAFT, actor_id=user.id
+        db,
+        run,
+        event_type="run.created",
+        from_state=None,
+        to_state=RunState.DRAFT,
+        actor_id=user.id,
     )
 
     await db.refresh(run)

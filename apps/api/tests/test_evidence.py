@@ -3,7 +3,7 @@
 import hashlib
 
 import pytest
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 
 from app.core.database import async_session_factory
@@ -127,7 +127,8 @@ async def test_list_evidence_with_filter(client: AsyncClient):
     assert len(filtered_resp.json()) == 2
 
     filtered_none = await client.get(
-        f"/api/v1/projects/{project_id}/evidence", params={"verification_status": "integrity_verified"}
+        f"/api/v1/projects/{project_id}/evidence",
+        params={"verification_status": "integrity_verified"},
     )
     assert filtered_none.status_code == 200
     assert len(filtered_none.json()) == 0

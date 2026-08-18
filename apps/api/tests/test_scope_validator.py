@@ -6,7 +6,6 @@ a User, Project, Engagement, and ScopeRules per test.
 """
 
 import pytest
-from sqlalchemy import select
 
 from app.core.database import async_session_factory
 from app.core.security import hash_password

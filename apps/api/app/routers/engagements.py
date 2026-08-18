@@ -76,7 +76,9 @@ async def _get_engagement_with_ownership(
 
 
 # ── Routes ───────────────────────────────────────────────
-@router.post("/projects/{project_id}/engagements", response_model=EngagementResponse, status_code=201)
+@router.post(
+    "/projects/{project_id}/engagements", response_model=EngagementResponse, status_code=201
+)
 async def create_engagement(
     project_id: str,
     body: CreateEngagementRequest,

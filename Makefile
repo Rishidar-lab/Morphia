@@ -52,6 +52,7 @@ typecheck: ## Type-check all code
 
 format: ## Format all code
 	cd apps/api && python -m ruff format .
+	cd apps/worker && python -m ruff format .
 	cd apps/web && npm run format
 
 # ── Database ──────────────────────────────────────────────

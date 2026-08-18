@@ -11,19 +11,21 @@ Uses a synchronous database connection (DATABASE_URL_SYNC) since this is
 a one-shot CLI script, not part of the async request path.
 """
 
+import os
 import sys
 
 from sqlalchemy import create_engine, select
-from sqlalchemy.orm import Session as SyncSession, sessionmaker
+from sqlalchemy.orm import Session as SyncSession
+from sqlalchemy.orm import sessionmaker
 
 from app.core.config import get_settings
 from app.core.security import hash_password
 from app.models.auth import User
 from app.models.domain import Engagement, Project, ScopeRule
 
-ADMIN_EMAIL = "admin@morphia.local"
-ADMIN_PASSWORD = "morphia-dev-2026"
-ADMIN_DISPLAY_NAME = "MORPHIA Admin"
+ADMIN_EMAIL = os.environ.get("SEED_ADMIN_EMAIL", "admin@morphia.local")
+ADMIN_PASSWORD = os.environ.get("SEED_ADMIN_PASSWORD", "")
+ADMIN_DISPLAY_NAME = os.environ.get("SEED_ADMIN_DISPLAY_NAME", "MORPHIA Admin")
 
 SAMPLE_PROJECT_NAME = "Sample Security Assessment"
 SAMPLE_ENGAGEMENT_NAME = "Q1 External Pentest"
@@ -53,7 +55,7 @@ def seed_admin_user(db: SyncSession) -> User:
     )
     db.add(user)
     db.flush()
-    print(f"[seed] Created admin user: {ADMIN_EMAIL} / {ADMIN_PASSWORD}")
+    print(f"[seed] Created admin user: {ADMIN_EMAIL}")
     return user
 
 
@@ -102,9 +104,11 @@ def seed_sample_engagement(db: SyncSession, project: Project) -> Engagement:
 
 
 def seed_sample_scope_rules(db: SyncSession, engagement: Engagement) -> None:
-    existing = db.execute(
-        select(ScopeRule).where(ScopeRule.engagement_id == engagement.id)
-    ).scalars().all()
+    existing = (
+        db.execute(select(ScopeRule).where(ScopeRule.engagement_id == engagement.id))
+        .scalars()
+        .all()
+    )
     if existing:
         print(f"[seed] Scope rules already exist for engagement {engagement.id}")
         return
@@ -144,6 +148,13 @@ def main() -> None:
     settings = get_settings()
     if settings.is_production:
         print("[seed] Refusing to seed in production environment. Aborting.", file=sys.stderr)
+        sys.exit(1)
+
+    if not ADMIN_PASSWORD:
+        print(
+            "[seed] SEED_ADMIN_PASSWORD must be set explicitly; refusing to create a known-password account.",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     session_factory = get_sync_session_factory()
