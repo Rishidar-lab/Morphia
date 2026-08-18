@@ -129,12 +129,12 @@ morphia/
 ├── apps/
 │   ├── api/          # FastAPI backend (auth, projects, engagements, scope, runs, evidence, findings, reports)
 │   ├── web/          # React frontend (14 pages)
-│   └── worker/       # Redis job-queue consumer (skeleton — no provider execution yet)
+│   └── worker/       # Redis job-queue consumer with provider adapters and callback API
 ├── packages/
 │   ├── contracts/    # Shared run-state contract (run_states.ts)
 │   └── shared-types/ # Reserved for cross-package types (currently empty)
 ├── infra/docker/     # Dockerfiles
-├── tests/            # Integration & E2E tests (Playwright scaffolding in tests/e2e/)
+├── tests/            # Cross-service integration and Playwright E2E tests
 ├── docs/             # Documentation
 └── scripts/          # Operational scripts (backup/restore)
 ```
