@@ -14,11 +14,22 @@ from collections.abc import Iterator
 
 import pytest
 
-# Set defaults before any test module imports app.main/app.core.database.
-os.environ.setdefault("ENVIRONMENT", "test")
+# Set test settings before any test module imports app.main/app.core.database.
+#
+# DATABASE_URL is *forced* to the disposable in-memory SQLite harness (not
+# setdefault) so the suite is deterministic even when an ambient `.env` /
+# container environment points DATABASE_URL at a real PostgreSQL — running the
+# async engine against real asyncpg under pytest-asyncio's per-test loops
+# produces "attached to a different loop" failures. Set PYTEST_DATABASE_URL /
+# PYTEST_DATABASE_URL_SYNC explicitly to opt into a real database.
+os.environ["ENVIRONMENT"] = "test"
+os.environ["DATABASE_URL"] = os.environ.get(
+    "PYTEST_DATABASE_URL", "sqlite+aiosqlite:///:memory:"
+)
+os.environ["DATABASE_URL_SYNC"] = os.environ.get(
+    "PYTEST_DATABASE_URL_SYNC", "sqlite:///:memory:"
+)
 os.environ.setdefault("SECRET_KEY", "test-only-secret-key-not-for-production")
-os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
-os.environ.setdefault("DATABASE_URL_SYNC", "sqlite:///:memory:")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/15")
 os.environ.setdefault("WORKER_AUTH_SECRET", "test-only-worker-secret")
 os.environ.setdefault("ALLOWED_ORIGINS", "http://test")

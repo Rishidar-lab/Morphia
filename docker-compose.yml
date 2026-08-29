@@ -45,6 +45,11 @@ services:
       - ./apps/api:/app/apps/api
       - ./packages:/app/packages
       - ./storage:/app/storage
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/health').status==200 else 1)"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   worker:
     build:
@@ -59,10 +64,17 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      api:
+        condition: service_healthy
     volumes:
       - ./apps/worker:/app/apps/worker
       - ./packages:/app/packages
       - ./storage:/app/storage
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import os,time,sys; p=[f for f in os.listdir('/proc') if f.isdigit()]; sys.exit(0 if any('app.main' in open(f'/proc/{x}/cmdline').read() for x in p) else 1)\""]
+      interval: 10s
+      timeout: 3s
+      retries: 5
 
   web:
     build:
@@ -73,10 +85,25 @@ services:
     environment:
       API_PROXY_TARGET: http://api:8000
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     volumes:
       - ./apps/web:/app
       - /app/node_modules
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:5173 >/dev/null 2>&1 || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Synthetic, self-contained target for the canonical local demo.
+  # Not a real application — see apps/demo-target/server.py.
+  demo-target:
+    build:
+      context: .
+      dockerfile: infra/docker/demo-target.Dockerfile
+    ports:
+      - "9000:9000"
 
 volumes:
   pgdata:

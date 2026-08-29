@@ -21,6 +21,7 @@ from app.models.runs import (
     Run,
     RunEvent,
     RunState,
+    RunStep,
     validate_transition,
 )
 from app.routers.auth import get_current_user
@@ -70,6 +71,20 @@ class RunEventResponse(BaseModel):
     to_state: str | None
     actor_id: str | None
     payload: dict | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class RunStepResponse(BaseModel):
+    id: str
+    run_id: str
+    step_number: int
+    action: str
+    status: str
+    input_data: dict | None
+    output_data: dict | None
+    error: str
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -374,6 +389,21 @@ async def list_run_events(
 
     result = await db.execute(
         select(RunEvent).where(RunEvent.run_id == run_id).order_by(RunEvent.created_at.asc())
+    )
+    return list(result.scalars().all())
+
+
+@router.get("/runs/{run_id}/steps", response_model=list[RunStepResponse])
+async def list_run_steps(
+    run_id: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[RunStep]:
+    """List the executed steps of a run, in order."""
+    await _get_owned_run(run_id, user, db)
+
+    result = await db.execute(
+        select(RunStep).where(RunStep.run_id == run_id).order_by(RunStep.step_number.asc())
     )
     return list(result.scalars().all())
 
