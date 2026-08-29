@@ -131,7 +131,11 @@ async def login(
             metadata_json=None,
         )
     )
-    await db.flush()
+    # Commit before returning: get_db() otherwise commits only after the
+    # response is sent, leaving a window where the client has the session
+    # cookie but the session row is not yet visible to the next request
+    # (a fresh GET /api/auth/me or a dashboard query would 401).
+    await db.commit()
 
     response.set_cookie(
         key="sid",

@@ -42,6 +42,17 @@ export function Layout() {
   }, [navigate, queryClient]);
 
   useEffect(() => {
+    // If we just signed in (or navigated within an authenticated session) the
+    // session store already holds the user — trust it. A dead session still
+    // gets caught: the first real API call returns 401 and the global
+    // unauthorized handler above redirects. Only when we have *no* user
+    // (a cold page load) do we resolve it from the cookie here.
+    const known = getCurrentUser();
+    if (known) {
+      setUser(known);
+      setAuthState("authed");
+      return;
+    }
     let cancelled = false;
     fetchCurrentUser().then((u) => {
       if (cancelled) return;
