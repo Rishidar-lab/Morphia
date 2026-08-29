@@ -1,12 +1,21 @@
 """Alembic migration environment."""
 
 import os
+import sys
 from logging.config import fileConfig
+from pathlib import Path
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-from app.core.database import Base
+# Make the `app` package importable no matter how alembic is invoked
+# (console-script entry point, `python -m alembic`, from any CWD). The
+# editable install's import hook is not always present in every context
+# — the container bind-mount and CI both hit this — so anchor on the
+# known location of this file: apps/api/migrations/env.py -> apps/api.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from app.core.database import Base  # noqa: E402
 from app.models import *  # noqa: F401,F403 — import all models for autogenerate
 
 config = context.config
