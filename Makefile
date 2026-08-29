@@ -72,6 +72,19 @@ backup: ## Create timestamped database backup
 restore: ## Restore from backup (usage: make restore FILE=backups/morphia_2026-08-05.sql.gz)
 	./scripts/restore.sh $(FILE)
 
+# ── Demo ──────────────────────────────────────────────────
+demo: ## One command: build + start + migrate + seed + verify + live journey
+	./scripts/demo.sh
+
+demo-down: ## Stop the demo stack
+	./scripts/demo.sh --down
+
+demo-reset: ## Wipe the demo database volume and rebuild from scratch
+	./scripts/demo.sh --reset
+
+test-e2e-live: ## Run the Playwright MVP-journey suite against a running stack
+	cd tests/e2e && npm install && npx playwright install --with-deps chromium && npx playwright test
+
 # ── Verification ──────────────────────────────────────────
 verify: lint typecheck test ## Full verification suite
 

@@ -23,15 +23,13 @@ import pytest
 # produces "attached to a different loop" failures. Set PYTEST_DATABASE_URL /
 # PYTEST_DATABASE_URL_SYNC explicitly to opt into a real database.
 os.environ["ENVIRONMENT"] = "test"
-os.environ["DATABASE_URL"] = os.environ.get(
-    "PYTEST_DATABASE_URL", "sqlite+aiosqlite:///:memory:"
-)
-os.environ["DATABASE_URL_SYNC"] = os.environ.get(
-    "PYTEST_DATABASE_URL_SYNC", "sqlite:///:memory:"
-)
-os.environ.setdefault("SECRET_KEY", "test-only-secret-key-not-for-production")
+os.environ["DATABASE_URL"] = os.environ.get("PYTEST_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
+os.environ["DATABASE_URL_SYNC"] = os.environ.get("PYTEST_DATABASE_URL_SYNC", "sqlite:///:memory:")
+# Forced (not setdefault): the suite must be hermetic even inside the api
+# container, where a real SECRET_KEY / WORKER_AUTH_SECRET are already exported.
+os.environ["SECRET_KEY"] = "test-only-secret-key-not-for-production"
+os.environ["WORKER_AUTH_SECRET"] = "test-only-worker-secret"
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/15")
-os.environ.setdefault("WORKER_AUTH_SECRET", "test-only-worker-secret")
 os.environ.setdefault("ALLOWED_ORIGINS", "http://test")
 
 from app.core.database import Base, engine
