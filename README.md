@@ -1,5 +1,7 @@
 # MORPHIA
 
+[![CI](https://github.com/Rishidar-lab/Morphia/actions/workflows/ci.yml/badge.svg)](https://github.com/Rishidar-lab/Morphia/actions/workflows/ci.yml)
+
 **Human-in-the-loop orchestration for authorized security research.**
 
 Scoped engagements, auditable execution, evidence integrity, and
@@ -149,6 +151,15 @@ For recording a walkthrough, see `docs/demo-script.md`,
 `docs/demo-shot-list.md`, `docs/demo-narration.md`, and
 `scripts/prepare-demo.sh`.
 
+## Screenshots
+
+| | |
+|---|---|
+| ![Dashboard](docs/assets/screenshots/dashboard.png) | ![Scope](docs/assets/screenshots/scope.png) |
+| ![Run detail](docs/assets/screenshots/run-detail.png) | ![Audit log](docs/assets/screenshots/audit-log.png) |
+
+More in [`docs/assets/screenshots/`](docs/assets/screenshots/).
+
 ## Security boundaries
 
 - **Authorization before execution** — every target validated against the
@@ -183,9 +194,9 @@ green. Evidence matrix: `docs/mvp-verification.md`.
 
 ## Project status
 
-**MVP / alpha.** The journey in `docs/mvp-verification.md` is fully working and
-verified against a live stack. What was fixed to get here is itemised in
-`docs/mvp-gap-analysis.md`.
+**MVP / alpha** — [`v0.1.0-mvp`](docs/releases/v0.1.0-mvp.md). The journey in
+`docs/mvp-verification.md` is fully working and verified against a live stack.
+What was fixed to get here is itemised in `docs/mvp-gap-analysis.md`.
 
 ## Limitations
 
