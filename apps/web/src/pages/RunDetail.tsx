@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "@/lib/api";
@@ -58,6 +58,20 @@ export default function RunDetail() {
     queryKey: ["evidence"],
     queryFn: () => api.get<EvidenceArtifact[]>("/api/v1/evidence"),
   });
+
+  // When the run reaches a terminal state, the steps/events polling stops —
+  // but the last poll may have landed a beat before the final events (e.g.
+  // `run.scope_denied`) were written. Force one more fetch on that transition.
+  const prevState = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    const s = runQuery.data?.state;
+    if (s && prevState.current && prevState.current !== s && TERMINAL_STATES.has(s)) {
+      queryClient.invalidateQueries({ queryKey: ["run-steps", id] });
+      queryClient.invalidateQueries({ queryKey: ["run-events", id] });
+      queryClient.invalidateQueries({ queryKey: ["evidence"] });
+    }
+    prevState.current = s;
+  }, [runQuery.data?.state, id, queryClient]);
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["run", id] });

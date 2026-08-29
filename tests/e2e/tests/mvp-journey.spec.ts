@@ -123,7 +123,7 @@ test("full journey: allowed run completes end to end", async ({ page }) => {
 
   // Worker (mock provider) picks it up and drives it to COMPLETED — the
   // timeline records the worker-attributed transition and the captured step.
-  await expect(page.getByText("RUNNING → COMPLETED")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText("RUNNING → COMPLETED")).toBeVisible({ timeout: 45_000 });
   await expect(page.getByText("run.step_completed")).toBeVisible();
   await expect(page.getByText(/mock-provider deterministic response/i)).toBeVisible();
   await expect(page.getByText("worker:", { exact: false }).first()).toBeVisible();
@@ -150,7 +150,7 @@ test("scope-denied path: out-of-scope target is refused", async ({ page }) => {
 
   // The worker's independent scope re-check refuses it; the run ends FAILED
   // with the reason recorded on the timeline.
-  await expect(page.getByText("run.scope_denied")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText("run.scope_denied")).toBeVisible({ timeout: 45_000 });
   await expect(
     page.getByText(/does not match any allowed scope rule/i).first(),
   ).toBeVisible();

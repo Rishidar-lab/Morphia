@@ -130,11 +130,13 @@ jobs:
           PY
       - name: Build and start the stack
         run: docker compose up -d --build
-      - name: Wait for web + api
+      - name: Wait for web + api + worker
         run: |
           for i in $(seq 1 60); do
-            curl -fsS http://localhost:8000/api/ready | grep -q ready && \
-            curl -fsS -o /dev/null http://localhost:5173 && exit 0
+            curl -fsS http://localhost:8000/api/ready | grep -q ready \
+              && curl -fsS -o /dev/null http://localhost:5173 \
+              && docker compose logs worker 2>&1 | grep -q "worker.started" \
+              && exit 0
             sleep 2
           done
           docker compose logs --tail 80; exit 1
