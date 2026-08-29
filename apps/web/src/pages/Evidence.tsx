@@ -2,17 +2,40 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, ApiError } from "@/lib/api";
 import type { EvidenceArtifact, VerificationStatus } from "@/lib/types";
+import { EVIDENCE_VERIFICATION_STATUSES } from "@/lib/types";
 import { LoadingSkeleton, EmptyState, ErrorState } from "@/components/ListStates";
 
-const VERIFICATION_STYLE: Record<VerificationStatus, string> = {
-  verified: "bg-emerald-500/10 text-emerald-300 border-emerald-500/30",
-  unverified: "bg-gray-500/10 text-gray-400 border-gray-500/30",
-  failed: "bg-red-500/10 text-red-300 border-red-500/30",
-};
+const VERIFIED_LOOKING = new Set<VerificationStatus>([
+  "integrity_verified",
+  "manually_reproduced",
+  "source_captured",
+]);
+const BAD_LOOKING = new Set<VerificationStatus>(["contradicted", "rejected"]);
+
+function statusStyle(status: VerificationStatus): string {
+  if (VERIFIED_LOOKING.has(status))
+    return "bg-emerald-500/10 text-emerald-300 border-emerald-500/30";
+  if (BAD_LOOKING.has(status)) return "bg-red-500/10 text-red-300 border-red-500/30";
+  return "bg-gray-500/10 text-gray-400 border-gray-500/30";
+}
+
+function statusLabel(status: VerificationStatus): string {
+  return status
+    .split("_")
+    .map((w) => w[0].toUpperCase() + w.slice(1))
+    .join(" ");
+}
 
 function truncateHash(hash: string): string {
+  if (!hash) return "—";
   if (hash.length <= 16) return hash;
   return `${hash.slice(0, 10)}…${hash.slice(-6)}`;
+}
+
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / 1024 / 1024).toFixed(1)} MB`;
 }
 
 export default function Evidence() {
@@ -21,7 +44,6 @@ export default function Evidence() {
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["evidence"],
     queryFn: () => api.get<EvidenceArtifact[]>("/api/v1/evidence"),
-    retry: false,
   });
 
   const filtered = useMemo(() => {
@@ -29,8 +51,6 @@ export default function Evidence() {
     if (statusFilter === "all") return items;
     return items.filter((e) => e.verification_status === statusFilter);
   }, [data, statusFilter]);
-
-  const notImplemented = isError && error instanceof ApiError && error.status === 404;
 
   return (
     <div>
@@ -48,29 +68,31 @@ export default function Evidence() {
           className="bg-gray-950 border border-gray-700 rounded-md px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500"
         >
           <option value="all">All statuses</option>
-          <option value="verified">Verified</option>
-          <option value="unverified">Unverified</option>
-          <option value="failed">Failed</option>
+          {EVIDENCE_VERIFICATION_STATUSES.map((s) => (
+            <option key={s} value={s}>
+              {statusLabel(s)}
+            </option>
+          ))}
         </select>
       </div>
 
       {isLoading && <LoadingSkeleton rows={4} />}
 
-      {isError && !notImplemented && (
+      {isError && (
         <ErrorState
           message={error instanceof ApiError ? error.message : "Failed to load evidence."}
           onRetry={() => refetch()}
         />
       )}
 
-      {(notImplemented || (!isLoading && !isError && filtered.length === 0)) && (
+      {!isLoading && !isError && filtered.length === 0 && (
         <EmptyState
           title="No evidence artifacts yet"
-          description="Evidence collected by agent runs — screenshots, response bodies, scan output — will appear here once captured, each with a SHA-256 integrity hash."
+          description="Evidence collected by agent runs — screenshots, response bodies, scan output — appears here once captured, each with a SHA-256 integrity hash."
         />
       )}
 
-      {!isLoading && !isError && !notImplemented && filtered.length > 0 && (
+      {!isLoading && !isError && filtered.length > 0 && (
         <div className="bg-gray-900/50 border border-gray-800 rounded-lg overflow-hidden overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -78,6 +100,7 @@ export default function Evidence() {
                 <th className="px-4 py-3 font-medium">Filename</th>
                 <th className="px-4 py-3 font-medium">Type</th>
                 <th className="px-4 py-3 font-medium">Source</th>
+                <th className="px-4 py-3 font-medium">Size</th>
                 <th className="px-4 py-3 font-medium">SHA-256</th>
                 <th className="px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3 font-medium">Date</th>
@@ -89,20 +112,28 @@ export default function Evidence() {
                   key={item.id}
                   className="border-b border-gray-800/60 last:border-0 hover:bg-gray-800/30 transition-colors"
                 >
-                  <td className="px-4 py-3 text-gray-100 font-medium">{item.filename}</td>
-                  <td className="px-4 py-3 text-gray-400">{item.artifact_type}</td>
-                  <td className="px-4 py-3 text-gray-400">{item.source}</td>
-                  <td className="px-4 py-3 text-gray-500 font-mono text-xs">
-                    {truncateHash(item.sha256)}
+                  <td className="px-4 py-3 text-gray-100 font-medium">
+                    {item.original_filename}
+                  </td>
+                  <td className="px-4 py-3 text-gray-400 font-mono text-xs">
+                    {item.content_type}
+                  </td>
+                  <td className="px-4 py-3 text-gray-400">{item.source || "—"}</td>
+                  <td className="px-4 py-3 text-gray-500">{formatBytes(item.file_size)}</td>
+                  <td
+                    className="px-4 py-3 text-gray-500 font-mono text-xs"
+                    title={item.sha256_digest}
+                  >
+                    {truncateHash(item.sha256_digest)}
                   </td>
                   <td className="px-4 py-3">
                     <span
                       className={
                         "text-xs px-2 py-0.5 rounded-full border " +
-                        VERIFICATION_STYLE[item.verification_status]
+                        statusStyle(item.verification_status)
                       }
                     >
-                      {item.verification_status}
+                      {statusLabel(item.verification_status)}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-gray-500">

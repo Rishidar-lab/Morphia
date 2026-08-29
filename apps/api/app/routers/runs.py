@@ -13,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.models.audit import AuditEvent, AuditEventType
 from app.models.auth import User
 from app.models.domain import Project
 from app.models.runs import (
@@ -319,6 +320,17 @@ async def approve_run(
         actor_id=user.id,
         payload={"decision": "approved", "justification": body.justification},
     )
+    db.add(
+        AuditEvent(
+            event_type=AuditEventType.APPROVAL_DECIDE,
+            actor_id=user.id,
+            target_type="run",
+            target_id=run.id,
+            action="approval.approved",
+            metadata_json={"approval_type": approval_type, "to_state": next_state.value},
+        )
+    )
+    await db.flush()
 
     if next_state == RunState.QUEUED:
         await enqueue_run_job(run.id)
@@ -373,6 +385,17 @@ async def reject_run(
         actor_id=user.id,
         payload={"decision": "rejected", "justification": body.justification},
     )
+    db.add(
+        AuditEvent(
+            event_type=AuditEventType.APPROVAL_DECIDE,
+            actor_id=user.id,
+            target_type="run",
+            target_id=run.id,
+            action="approval.rejected",
+            metadata_json={"approval_type": approval_type},
+        )
+    )
+    await db.flush()
 
     await db.refresh(run)
     return run

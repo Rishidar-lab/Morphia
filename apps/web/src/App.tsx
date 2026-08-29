@@ -10,6 +10,7 @@ const SignIn = lazy(() => import("./pages/SignIn"));
 const Projects = lazy(() => import("./pages/Projects"));
 const ProjectDetail = lazy(() => import("./pages/ProjectDetail"));
 const Runs = lazy(() => import("./pages/Runs"));
+const RunDetail = lazy(() => import("./pages/RunDetail"));
 const Agents = lazy(() => import("./pages/Agents"));
 const Evidence = lazy(() => import("./pages/Evidence"));
 const Findings = lazy(() => import("./pages/Findings"));
@@ -32,6 +33,7 @@ export default function App() {
             <Route path="/projects" element={<Projects />} />
             <Route path="/projects/:id" element={<ProjectDetail />} />
             <Route path="/runs" element={<Runs />} />
+            <Route path="/runs/:id" element={<RunDetail />} />
             <Route path="/agents" element={<Agents />} />
             <Route path="/evidence" element={<Evidence />} />
             <Route path="/findings" element={<Findings />} />
@@ -40,8 +42,9 @@ export default function App() {
             <Route path="/approvals" element={<Approvals />} />
             <Route path="/audit" element={<AuditLog />} />
             <Route path="/settings" element={<Settings />} />
-            <Route path="*" element={<NotFound />} />
           </Route>
+          {/* 404 lives outside the auth guard so a bad URL never forces a login. */}
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>
     </ErrorBoundary>

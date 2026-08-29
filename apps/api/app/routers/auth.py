@@ -14,6 +14,7 @@ from app.core.security import (
     session_expiry,
     verify_password,
 )
+from app.models.audit import AuditEvent, AuditEventType
 from app.models.auth import Session, User
 
 router = APIRouter()
@@ -112,6 +113,16 @@ async def login(
         expires_at=session_expiry(settings.session_lifetime_hours),
     )
     db.add(session)
+    db.add(
+        AuditEvent(
+            event_type=AuditEventType.AUTH_LOGIN,
+            actor_id=user.id,
+            target_type="session",
+            target_id=session.id,
+            action="auth.login",
+            metadata_json=None,
+        )
+    )
     await db.flush()
 
     response.set_cookie(
@@ -139,6 +150,17 @@ async def logout(
         result = await db.execute(select(Session).where(Session.token == token))
         session = result.scalar_one_or_none()
         if session:
+            db.add(
+                AuditEvent(
+                    event_type=AuditEventType.AUTH_LOGOUT,
+                    actor_id=session.user_id,
+                    target_type="session",
+                    target_id=session.id,
+                    action="auth.logout",
+                    metadata_json=None,
+                )
+            )
+            await db.flush()
             await db.delete(session)
 
     response.delete_cookie("sid")

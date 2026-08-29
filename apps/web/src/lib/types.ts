@@ -125,12 +125,23 @@ export interface Asset {
 }
 
 // ── Runs ─────────────────────────────────────────────────
+export interface RunPlanStep {
+  action: string;
+  target: string;
+  prompt: string;
+}
+
+export interface RunPlan {
+  steps: RunPlanStep[];
+}
+
 export interface Run {
   id: string;
   project_id: string;
+  engagement_id: string | null;
   state: RunState;
   title: string;
-  plan: Record<string, unknown> | null;
+  plan: RunPlan | null;
   agent_profile: string | null;
   failure_reason: string;
   created_by: string;
@@ -147,7 +158,6 @@ export interface RunStep {
   input_data: Record<string, unknown> | null;
   output_data: Record<string, unknown> | null;
   error: string;
-  idempotency_key: string | null;
   created_at: string;
 }
 
@@ -186,7 +196,6 @@ export interface AuditEvent {
   id: string;
   event_type: string;
   actor_id: string | null;
-  actor_name?: string;
   target_type: string | null;
   target_id: string | null;
   action: string;
@@ -196,57 +205,135 @@ export interface AuditEvent {
 }
 
 // ── Findings ─────────────────────────────────────────────
+// Mirrors apps/api/app/models/findings.py and FindingResponse.
 export type FindingSeverity = "critical" | "high" | "medium" | "low" | "info";
-export type FindingState =
-  | "candidate"
-  | "verified"
-  | "rejected"
-  | "remediated"
-  | "accepted_risk";
+
+export const FINDING_STATES = [
+  "candidate",
+  "needs_evidence",
+  "needs_reproduction",
+  "verified",
+  "rejected",
+  "duplicate",
+  "report_ready",
+  "submitted",
+  "triaged",
+  "resolved",
+] as const;
+export type FindingState = (typeof FINDING_STATES)[number];
 
 export interface Finding {
   id: string;
   project_id: string;
-  run_id?: string | null;
   title: string;
+  observation: string;
+  hypothesis: string;
+  verification_method: string;
+  actual_result: string;
+  expected_result: string;
+  affected_scope: string;
+  security_impact: string;
+  uncertainty: string;
   severity: FindingSeverity;
-  cwe: string | null;
-  affected_asset: string;
-  description?: string;
+  suggested_severity: string | null;
+  cwe_id: string | null;
+  cvss_vector: string | null;
+  remediation: string;
+  disclosure_status: string;
   state: FindingState;
+  creator_id: string;
+  reviewer_id: string | null;
   created_at: string;
-  updated_at?: string;
+  updated_at: string;
 }
 
 // ── Reports ──────────────────────────────────────────────
-export type ReportStatus = "draft" | "generating" | "ready" | "failed";
-export type ReportFormat = "markdown" | "pdf" | "json";
+// Mirrors apps/api/app/models/reports.py.
+export const REPORT_STATUSES = [
+  "draft",
+  "review",
+  "final",
+  "submitted",
+  "acknowledged",
+] as const;
+export type ReportStatus = (typeof REPORT_STATUSES)[number];
+
+export const REPORT_FORMATS = ["markdown", "html", "json"] as const;
+export type ReportFormat = (typeof REPORT_FORMATS)[number];
 
 export interface Report {
   id: string;
   project_id: string;
   project_name?: string;
   title: string;
+  summary: string;
+  affected_asset: string;
+  scope_confirmation: string;
+  prerequisites: string;
+  reproduction_steps: string;
+  expected_result: string;
+  actual_result: string;
+  impact: string;
+  severity_rationale: string;
+  cwe_id: string | null;
+  cvss_vector: string | null;
+  remediation: string;
+  limitations: string;
+  disclosure_timeline: Array<Record<string, unknown>> | null;
   status: ReportStatus;
-  finding_count: number;
+  format: ReportFormat;
+  creator_id: string;
   created_at: string;
-  updated_at?: string;
+  updated_at: string;
+  finding_count?: number;
 }
 
 // ── Evidence ─────────────────────────────────────────────
-export type VerificationStatus = "verified" | "unverified" | "failed";
+// Mirrors apps/api/app/models/evidence.py and EvidenceResponse.
+export const EVIDENCE_VERIFICATION_STATUSES = [
+  "unreviewed",
+  "source_captured",
+  "integrity_verified",
+  "manually_reproduced",
+  "contradicted",
+  "inconclusive",
+  "rejected",
+] as const;
+export type VerificationStatus = (typeof EVIDENCE_VERIFICATION_STATUSES)[number];
 
 export interface EvidenceArtifact {
   id: string;
-  project_id?: string;
-  run_id?: string | null;
-  filename: string;
-  artifact_type: string;
+  project_id: string;
+  engagement_id: string | null;
+  run_id: string | null;
+  run_step_id: string | null;
+  creator_id: string;
   source: string;
-  sha256: string;
+  acquisition_timestamp: string | null;
+  content_type: string;
+  original_filename: string;
+  storage_path: string;
+  file_size: number;
+  sha256_digest: string;
+  sensitivity: string;
   verification_status: VerificationStatus;
-  size_bytes?: number;
+  reviewer_id: string | null;
+  notes: string;
   created_at: string;
+  updated_at: string;
+}
+
+// ── Dashboard ────────────────────────────────────────────
+export interface DashboardSummary {
+  projects: number;
+  engagements: number;
+  runs: number;
+  active_runs: number;
+  pending_approvals: number;
+  evidence: number;
+  findings: number;
+  verified_findings: number;
+  reports: number;
 }
 
 // ── Agent Profiles ───────────────────────────────────────

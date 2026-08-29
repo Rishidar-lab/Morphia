@@ -155,7 +155,7 @@ export default function Projects() {
                 onClick={() => setShowForm(true)}
                 className="px-3.5 py-1.5 text-sm font-medium rounded-md bg-blue-600 hover:bg-blue-500 text-white transition-colors"
               >
-                New Project
+                Create your first project
               </button>
             )
           }

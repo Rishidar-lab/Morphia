@@ -34,7 +34,7 @@ import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, delete, select
 from sqlalchemy.orm import Session as SyncSession
 from sqlalchemy.orm import sessionmaker
 
@@ -55,6 +55,7 @@ ADMIN_DISPLAY_NAME = os.environ.get("SEED_ADMIN_DISPLAY_NAME", "MORPHIA Demo Own
 PROJECT_NAME = "Morphia Demo Research"
 ENGAGEMENT_NAME = "Authorized Local Security Validation"
 RUN_TITLE = "Baseline HTTP Security Review"
+FINDING_TITLE = "[SYNTHETIC DEMO] Permissive CORS policy on demo target"
 REPORT_TITLE = "Authorized Local Validation — Baseline HTTP Review"
 
 DEMO_TARGET = "demo-target"
@@ -236,12 +237,25 @@ def _seed_scope_rules(db: SyncSession, engagement: Engagement, owner: User) -> N
 def _seed_completed_run(
     db: SyncSession, project: Project, engagement: Engagement, owner: User
 ) -> Run:
-    run = db.execute(
+    # The report is the last artifact built here, so its presence means the
+    # whole chain (run → step → evidence → finding → report) is already
+    # seeded. If a partial chain exists (e.g. a bare run from an interrupted
+    # earlier seed), clear it and rebuild so the demo workspace is complete.
+    report_exists = db.execute(
+        select(Report).where(Report.project_id == project.id, Report.title == REPORT_TITLE)
+    ).scalar_one_or_none()
+    existing_run = db.execute(
         select(Run).where(Run.project_id == project.id, Run.title == RUN_TITLE)
     ).scalar_one_or_none()
-    if run:
-        print(f"[seed] run exists: {RUN_TITLE}")
-        return run
+    if report_exists and existing_run:
+        print("[seed] completed run + evidence + finding + report already present")
+        return existing_run
+    if existing_run:
+        print("[seed] found a partial demo run — rebuilding the full chain")
+        db.execute(delete(EvidenceArtifact).where(EvidenceArtifact.run_id == existing_run.id))
+        db.execute(delete(Finding).where(Finding.title == FINDING_TITLE))
+        db.delete(existing_run)
+        db.flush()
 
     plan = {
         "steps": [
@@ -371,7 +385,7 @@ def _seed_completed_run(
     # Finding — a harmless, explicitly-synthetic demonstration finding.
     finding = Finding(
         project_id=project.id,
-        title="[SYNTHETIC DEMO] Permissive CORS policy on demo target",
+        title=FINDING_TITLE,
         observation=(
             "The synthetic demo target returns `Access-Control-Allow-Origin: *` on all responses."
         ),

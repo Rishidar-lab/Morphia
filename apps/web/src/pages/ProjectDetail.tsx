@@ -543,13 +543,30 @@ function ScopeTab({ projectId }: { projectId: string }) {
 }
 
 // ── Runs ─────────────────────────────────────────────────
+interface NewRunBody {
+  title: string;
+  agent_profile: string | null;
+  engagement_id: string | null;
+  plan: { steps: { action: string; target: string; prompt: string }[] };
+}
+
 function NewRunForm({ projectId, onDone }: { projectId: string; onDone: () => void }) {
   const queryClient = useQueryClient();
   const [title, setTitle] = useState("");
-  const [agentProfile, setAgentProfile] = useState("");
+  const [agentProfile, setAgentProfile] = useState("passive_recon");
+  const [engagementId, setEngagementId] = useState("");
+  const [action, setAction] = useState("http_header_review");
+  const [target, setTarget] = useState("");
+  const [prompt, setPrompt] = useState("");
+
+  const engagementsQuery = useQuery({
+    queryKey: ["engagements", projectId],
+    queryFn: () => api.get<Engagement[]>(`/api/v1/projects/${projectId}/engagements`),
+  });
+  const engagements = engagementsQuery.data ?? [];
 
   const mutation = useMutation({
-    mutationFn: (body: { title: string; agent_profile: string | null }) =>
+    mutationFn: (body: NewRunBody) =>
       api.post<Run>(`/api/v1/projects/${projectId}/runs`, body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["runs"] });
@@ -559,9 +576,22 @@ function NewRunForm({ projectId, onDone }: { projectId: string; onDone: () => vo
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
+    if (!target.trim()) return;
     mutation.mutate({
-      title: title.trim(),
+      title: title.trim() || `Review of ${target.trim()}`,
       agent_profile: agentProfile.trim() || null,
+      engagement_id: engagementId || null,
+      plan: {
+        steps: [
+          {
+            action: action.trim() || "http_header_review",
+            target: target.trim(),
+            prompt:
+              prompt.trim() ||
+              `Review the HTTP response of ${target.trim()} for hardening concerns. Passive only.`,
+          },
+        ],
+      },
     });
   };
 
@@ -578,23 +608,79 @@ function NewRunForm({ projectId, onDone }: { projectId: string; onDone: () => vo
         </div>
       )}
 
+      {engagements.length === 0 && (
+        <div className="bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs px-3 py-2 rounded-md">
+          This project has no engagement yet. A run needs an engagement so its
+          target can be scope-checked — create one on the Engagements tab first.
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs text-gray-400 mb-1.5">Title</label>
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="w-full bg-gray-950 border border-gray-700 rounded-md px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-blue-500"
+            placeholder="Baseline HTTP Security Review"
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-gray-400 mb-1.5">Engagement</label>
+          <select
+            value={engagementId}
+            onChange={(e) => setEngagementId(e.target.value)}
+            className="w-full bg-gray-950 border border-gray-700 rounded-md px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500"
+          >
+            <option value="">Select an engagement…</option>
+            {engagements.map((eng) => (
+              <option key={eng.id} value={eng.id}>
+                {eng.program_name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs text-gray-400 mb-1.5">Agent profile</label>
+          <input
+            value={agentProfile}
+            onChange={(e) => setAgentProfile(e.target.value)}
+            className="w-full bg-gray-950 border border-gray-700 rounded-md px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-blue-500"
+            placeholder="passive_recon"
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-gray-400 mb-1.5">Step action</label>
+          <input
+            value={action}
+            onChange={(e) => setAction(e.target.value)}
+            className="w-full bg-gray-950 border border-gray-700 rounded-md px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-blue-500"
+            placeholder="http_header_review"
+          />
+        </div>
+      </div>
+
       <div>
-        <label className="block text-xs text-gray-400 mb-1.5">Title</label>
+        <label className="block text-xs text-gray-400 mb-1.5">
+          Step target (must be inside the engagement scope)
+        </label>
         <input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          className="w-full bg-gray-950 border border-gray-700 rounded-md px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-          placeholder="Passive recon sweep — external attack surface"
+          required
+          value={target}
+          onChange={(e) => setTarget(e.target.value)}
+          className="w-full bg-gray-950 border border-gray-700 rounded-md px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-blue-500 font-mono"
+          placeholder="demo-target"
         />
       </div>
 
       <div>
-        <label className="block text-xs text-gray-400 mb-1.5">Agent Profile</label>
-        <input
-          value={agentProfile}
-          onChange={(e) => setAgentProfile(e.target.value)}
-          className="w-full bg-gray-950 border border-gray-700 rounded-md px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-          placeholder="passive_recon (optional)"
+        <label className="block text-xs text-gray-400 mb-1.5">Step prompt</label>
+        <textarea
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          rows={2}
+          className="w-full bg-gray-950 border border-gray-700 rounded-md px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-blue-500"
+          placeholder="Review the HTTP response headers of the target for hardening concerns. Passive only."
         />
       </div>
 
@@ -608,7 +694,7 @@ function NewRunForm({ projectId, onDone }: { projectId: string; onDone: () => vo
         </button>
         <button
           type="submit"
-          disabled={mutation.isPending}
+          disabled={mutation.isPending || !target.trim()}
           className="px-3.5 py-1.5 text-sm font-medium rounded-md bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 disabled:cursor-not-allowed text-white transition-colors"
         >
           {mutation.isPending ? "Creating..." : "Create Run"}
@@ -668,9 +754,12 @@ function RunRow({ run }: { run: Run }) {
     <>
       <div className="flex items-center justify-between gap-4 py-3 px-4 border-b border-gray-800/60 last:border-0">
         <div className="min-w-0">
-          <p className="text-sm font-medium text-gray-100 truncate">
+          <Link
+            to={`/runs/${run.id}`}
+            className="text-sm font-medium text-gray-100 truncate hover:text-blue-400 transition-colors block"
+          >
             {run.title || "Untitled run"}
-          </p>
+          </Link>
           <p className="text-xs text-gray-500 mt-0.5">
             {run.agent_profile || "no agent profile"} ·{" "}
             {new Date(run.created_at).toLocaleString()}

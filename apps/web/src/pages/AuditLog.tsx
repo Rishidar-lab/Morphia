@@ -141,8 +141,12 @@ export default function AuditLog() {
                     <td className="px-4 py-3">
                       <EventTypeTag eventType={event.event_type} />
                     </td>
-                    <td className="px-4 py-3 text-gray-300">
-                      {event.actor_name || event.actor_id || "system"}
+                    <td className="px-4 py-3 text-gray-300 font-mono text-xs">
+                      {event.actor_id
+                        ? event.actor_id.startsWith("worker:")
+                          ? event.actor_id
+                          : event.actor_id.slice(0, 8)
+                        : "system"}
                     </td>
                     <td className="px-4 py-3 text-gray-400">
                       {event.target_type

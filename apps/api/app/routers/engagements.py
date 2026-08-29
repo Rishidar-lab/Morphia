@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.models.audit import AuditEvent, AuditEventType
 from app.models.auth import User
 from app.models.domain import Engagement, Project
 from app.routers.auth import get_current_user
@@ -97,6 +98,18 @@ async def create_engagement(
         notes=body.notes,
     )
     db.add(engagement)
+    await db.flush()
+
+    db.add(
+        AuditEvent(
+            event_type=AuditEventType.ENGAGEMENT_CREATE,
+            actor_id=user.id,
+            target_type="engagement",
+            target_id=engagement.id,
+            action="engagement.create",
+            metadata_json={"program_name": engagement.program_name},
+        )
+    )
     await db.flush()
     return engagement
 

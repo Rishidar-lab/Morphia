@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.models.audit import AuditEvent, AuditEventType
 from app.models.auth import User
 from app.models.domain import Project
 from app.routers.auth import get_current_user
@@ -59,6 +60,18 @@ async def create_project(
         owner_id=user.id,
     )
     db.add(project)
+    await db.flush()
+
+    db.add(
+        AuditEvent(
+            event_type=AuditEventType.PROJECT_CREATE,
+            actor_id=user.id,
+            target_type="project",
+            target_id=project.id,
+            action="project.create",
+            metadata_json={"name": project.name},
+        )
+    )
     await db.flush()
     return project
 
