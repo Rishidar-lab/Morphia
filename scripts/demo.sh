@@ -59,25 +59,38 @@ PY
 seed_password() { grep -E '^SEED_ADMIN_PASSWORD=' .env | head -1 | cut -d= -f2-; }
 seed_email()    { grep -E '^SEED_ADMIN_EMAIL='    .env | head -1 | cut -d= -f2- || echo admin@morphia.example.com; }
 
-wait_healthy() {
-  local svc=$1 tries=${2:-40}
-  say "waiting for '$svc' to be healthy"
-  for _ in $(seq 1 "$tries"); do
-    local st
-    st=$(docker compose ps --format json "$svc" 2>/dev/null | python3 -c "import sys,json
-try:
-    d=json.loads(sys.stdin.read() or '{}')
-    d=d[0] if isinstance(d,list) else d
+svc_health() {
+  # Prints "healthy" / "unhealthy" / "starting" / "running" / "" for a service.
+  docker compose ps --format json "$1" 2>/dev/null | python3 -c "
+import sys, json
+for line in sys.stdin:
+    line = line.strip()
+    if not line:
+        continue
+    try:
+        d = json.loads(line)
+    except Exception:
+        continue
+    d = d[0] if isinstance(d, list) else d
     print(d.get('Health') or d.get('State') or '')
-except Exception:
-    print('')" 2>/dev/null || echo "")
-    case "$st" in
-      healthy|running) ok "$svc: $st"; return 0 ;;
+    break
+" 2>/dev/null || true
+}
+
+wait_healthy() {
+  local svc=$1 tries=${2:-45}
+  say "waiting for '$svc'"
+  for _ in $(seq 1 "$tries"); do
+    case "$(svc_health "$svc")" in
+      healthy) ok "$svc: healthy"; return 0 ;;
+      running) # no healthcheck on this service
+        ok "$svc: running"; return 0 ;;
     esac
     sleep 2
   done
-  docker compose logs "$svc" --tail 30 || true
-  die "$svc did not become healthy"
+  warn "$svc not reporting healthy after $((tries * 2))s — recent logs:"
+  docker compose logs "$svc" --tail 20 || true
+  return 1
 }
 
 compose_up() {
@@ -89,7 +102,13 @@ compose_up() {
   wait_healthy redis
   wait_healthy api
   wait_healthy demo-target
-  wait_healthy web
+  # The web dev server can take a bit; fall back to polling the URL directly.
+  wait_healthy web 20 || {
+    for _ in $(seq 1 20); do
+      curl -fsS -o /dev/null "$WEB" && { ok "web: responding"; break; }
+      sleep 2
+    done
+  }
 }
 
 migrate() {
