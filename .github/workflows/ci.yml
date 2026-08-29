@@ -86,7 +86,7 @@ jobs:
           p = pathlib.Path(".env"); t = pathlib.Path(".env.example").read_text()
           t = t.replace("SECRET_KEY=change-me-to-a-random-64-char-string", f"SECRET_KEY={secrets.token_urlsafe(48)}")
           t = t.replace("WORKER_AUTH_SECRET=change-me-to-a-random-secret", f"WORKER_AUTH_SECRET={secrets.token_urlsafe(32)}")
-          t += f"\nSEED_ADMIN_EMAIL=admin@morphia.example.com\nSEED_ADMIN_PASSWORD={secrets.token_urlsafe(18)}\n"
+          t += f"\nSEED_ADMIN_EMAIL=admin@morphia.example.com\nSEED_ADMIN_PASSWORD={secrets.token_urlsafe(18)}\nAUTH_RATE_LIMIT=100000/minute\n"
           p.write_text(t)
           PY
       - name: Build and start the stack
@@ -125,7 +125,7 @@ jobs:
           p = pathlib.Path(".env"); t = pathlib.Path(".env.example").read_text()
           t = t.replace("SECRET_KEY=change-me-to-a-random-64-char-string", f"SECRET_KEY={secrets.token_urlsafe(48)}")
           t = t.replace("WORKER_AUTH_SECRET=change-me-to-a-random-secret", f"WORKER_AUTH_SECRET={secrets.token_urlsafe(32)}")
-          t += f"\nSEED_ADMIN_EMAIL=admin@morphia.example.com\nSEED_ADMIN_PASSWORD={secrets.token_urlsafe(18)}\n"
+          t += f"\nSEED_ADMIN_EMAIL=admin@morphia.example.com\nSEED_ADMIN_PASSWORD={secrets.token_urlsafe(18)}\nAUTH_RATE_LIMIT=100000/minute\n"
           p.write_text(t)
           PY
       - name: Build and start the stack

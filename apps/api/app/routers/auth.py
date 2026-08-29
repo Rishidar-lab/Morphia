@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.database import get_db
+from app.core.limiter import limiter
 from app.core.security import (
     generate_csrf_token,
     generate_session_token,
@@ -74,7 +75,10 @@ async def get_current_user(request: Request, db: AsyncSession = Depends(get_db))
 
 # ── Routes ───────────────────────────────────────────────
 @router.post("/register", response_model=UserResponse, status_code=201)
-async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)) -> User:
+@limiter.limit(settings.auth_rate_limit)
+async def register(
+    request: Request, body: RegisterRequest, db: AsyncSession = Depends(get_db)
+) -> User:
     """Register a new user account."""
     existing = await db.execute(select(User).where(User.email == body.email))
     if existing.scalar_one_or_none():
@@ -91,8 +95,12 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)) ->
 
 
 @router.post("/login")
+@limiter.limit(settings.auth_rate_limit)
 async def login(
-    body: LoginRequest, response: Response, db: AsyncSession = Depends(get_db)
+    request: Request,
+    body: LoginRequest,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
 ) -> dict[str, object]:
     """Authenticate and create a session."""
     result = await db.execute(select(User).where(User.email == body.email))

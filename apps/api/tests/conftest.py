@@ -31,6 +31,11 @@ os.environ["SECRET_KEY"] = "test-only-secret-key-not-for-production"
 os.environ["WORKER_AUTH_SECRET"] = "test-only-worker-secret"
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/15")
 os.environ.setdefault("ALLOWED_ORIGINS", "http://test")
+# The suite hammers auth/worker endpoints from one client address; keep the
+# per-IP rate limiter out of the way (its behaviour is covered by dedicated
+# tests, not incidentally by every fixture).
+os.environ["AUTH_RATE_LIMIT"] = "100000/minute"
+os.environ["WORKER_AUTH_RATE_LIMIT"] = "100000/minute"
 
 from app.core.database import Base, engine
 from app.models import (  # noqa: F401 — import models before create_all
