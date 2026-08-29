@@ -1,0 +1,73 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1280px; height: 640px; }
+  body {
+    background: #0a0e17;
+    background-image:
+      radial-gradient(900px 500px at 78% 18%, rgba(37,99,235,.16), transparent 60%),
+      radial-gradient(700px 420px at 12% 92%, rgba(6,182,212,.10), transparent 60%);
+    font-family: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color: #e5e7eb;
+    padding: 64px 84px;
+    position: relative;
+    overflow: hidden;
+  }
+  .grid {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(148,163,184,.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(148,163,184,.05) 1px, transparent 1px);
+    background-size: 44px 44px;
+    mask-image: linear-gradient(180deg, transparent, #000 30%, #000 70%, transparent);
+  }
+  .wm { position: relative; }
+  .brand {
+    font-size: 22px; letter-spacing: .34em; color: #60a5fa; font-weight: 700;
+  }
+  h1 {
+    margin-top: 22px;
+    font-size: 66px; line-height: 1.06; font-weight: 800; letter-spacing: -.02em;
+    max-width: 960px;
+  }
+  h1 .accent { color: #93c5fd; }
+  .sub {
+    margin-top: 24px; font-size: 23px; color: #9ca3af; max-width: 900px; line-height: 1.4;
+  }
+  .chips { margin-top: 40px; display: flex; gap: 12px; flex-wrap: wrap; }
+  .chip {
+    font-size: 17px; color: #cbd5e1; border: 1px solid #1f2937;
+    background: rgba(17,24,39,.7); border-radius: 999px; padding: 9px 18px;
+  }
+  .foot {
+    position: absolute; left: 84px; bottom: 52px; right: 84px;
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 18px; color: #6b7280;
+  }
+  .foot .repo { color: #94a3b8; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .pill { color:#22c55e; border:1px solid rgba(34,197,94,.3); border-radius:999px; padding:6px 14px; font-size:15px;}
+</style>
+</head>
+<body>
+  <div class="grid"></div>
+  <div class="wm">
+    <div class="brand">M O R P H I A</div>
+    <h1>Authorized security research,<br><span class="accent">orchestrated</span>.</h1>
+    <div class="sub">Scoped engagements · human approval gates · dual scope enforcement · evidence integrity · disclosure-ready reports</div>
+    <div class="chips">
+      <span class="chip">FastAPI + async SQLAlchemy</span>
+      <span class="chip">Redis-queued worker</span>
+      <span class="chip">React 19</span>
+      <span class="chip">Docker Compose</span>
+      <span class="chip">Playwright-verified journey</span>
+    </div>
+  </div>
+  <div class="foot">
+    <span class="repo">github.com/Rishidar-lab/Morphia</span>
+    <span class="pill">MVP · verified end to end</span>
+  </div>
+</body>
+</html>

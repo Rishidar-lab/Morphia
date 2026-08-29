@@ -1,5 +1,10 @@
 # Test Evidence
 
+> **Superseded (2026-08-30).** This ledger is from a sandbox with no Docker or
+> service stack. The current evidence — API/worker/web unit suites plus a
+> live-stack integration run and a Playwright browser suite — is in
+> **`docs/mvp-verification.md`**. Kept below as historical record.
+
 This document records verification that has actually been executed against the repository. It is a ledger, not a claim of production readiness.
 
 ## Verification environment

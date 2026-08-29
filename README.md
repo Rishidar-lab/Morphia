@@ -1,155 +1,219 @@
 # MORPHIA
 
-**Platform-independent cybersecurity research orchestration platform for authorized bug-bounty and vulnerability-disclosure workflows.**
+**Human-in-the-loop orchestration for authorized security research.**
 
-*Unrealistically real.*
+Scoped engagements, auditable execution, evidence integrity, and
+disclosure-ready reports — with a human approval gate before anything touches a
+target.
 
-## Overview
+![MORPHIA run detail](docs/assets/screenshots/run-detail.png)
 
-MORPHIA organizes legitimate security research by:
+> **Status: MVP / alpha.** The end-to-end journey works against a live stack and
+> is covered by service-backed integration tests and a browser E2E suite (see
+> `docs/mvp-verification.md`). It is not production-hardened — see
+> [Limitations](#limitations).
 
-- Creating projects with authorized engagements and explicit, validated scope
-- Coordinating AI agents, models, tools, and human reviewers through a run state machine with approval gates
-- Separating assumptions from verified facts via an evidence-and-findings pipeline
-- Preserving evidence with SHA-256 integrity hashing, provenance, and a verification-status lifecycle
-- Requiring human approval before sensitive actions (plan approval and action approval are distinct states in the run lifecycle)
-- Validating every target against an 8-point scope check before any tool executes — checked independently by both the API and the worker
-- Tracking findings through a lifecycle from `candidate` to `verified` to `report_ready`
-- Converting verified findings into responsible-disclosure reports, exportable as Markdown, HTML, or JSON
+---
 
-MORPHIA is **not** an autonomous attack platform. It enforces authorization boundaries, scope validation, and human oversight at every step.
+## What it is
 
-**Current implementation state:** the API (auth, RBAC, projects, engagements, scope, runs, evidence, findings, reports, worker-callback endpoints) is built with test coverage in `apps/api/tests/`. The React frontend has all primary pages implemented. The worker claims run steps from the queue, re-validates scope per step, and executes them via a pluggable AI provider (mock/OpenAI/OpenRouter/local — see `docs/architecture.md` §11); this has been verified end-to-end against a live `docker compose` stack, including the scope-denial path. Playwright end-to-end tests are scaffolded in `tests/e2e/` but have not yet been executed against a live stack, and there is no production deployment configuration yet (see `docs/completion-report.md`).
+MORPHIA is a platform-independent workspace for running bug-bounty and
+vulnerability-disclosure work the way a careful team actually does it:
 
-## Tech Stack
+- **Projects → engagements → explicit scope.** Every engagement carries an
+  authorization basis and an include/exclude scope list.
+- **Runs under a state machine.** A run moves `DRAFT → PLANNING →
+  AWAITING_PLAN_APPROVAL → QUEUED → RUNNING → COMPLETED` (10 states, one
+  legal-transition table, enforced server-side).
+- **A human approves before execution.** The run pauses at
+  `AWAITING_PLAN_APPROVAL`; nothing is queued for a worker until a person
+  approves it.
+- **Scope is checked twice.** Once by the API when the run is approved, and
+  again by the worker immediately before it executes each step — independently,
+  against live data. An out-of-scope target fails the run with the reason
+  recorded.
+- **Evidence has integrity.** Every artifact is SHA-256 hashed at capture and
+  carries provenance and a verification lifecycle.
+- **Findings become reports.** A verified finding can be assembled into a
+  HackerOne-style disclosure report, exportable as Markdown, HTML, or JSON.
+- **Everything is audited.** Auth, scope changes, approvals, run transitions,
+  evidence, findings, and reports all write to an append-only audit log.
 
-| Layer | Technology |
-|-------|-----------|
-| Frontend | React 19, TypeScript, Vite, Tailwind CSS |
-| Backend API | Python 3.11+, FastAPI, Pydantic v2 |
-| Database | PostgreSQL 16, SQLAlchemy 2, Alembic migrations |
-| Job Queue | Redis 7, async worker process |
-| Storage | S3-compatible (local filesystem for dev) |
-| Auth | Argon2id password hashing, server-side sessions |
-| Testing | pytest, vitest, Playwright |
+MORPHIA is **not** an autonomous attack tool. There is no code path that reaches
+a tool invocation without first clearing scope and (for the plan) a human.
 
-## Quick Start
+## Why it exists
 
-### With Docker (recommended)
+The first version of this was coupled to a single hosting platform's auth,
+storage, and deploy primitives — which broke the core requirement that a
+security team be able to self-host it on their own infrastructure. MORPHIA is
+the cloud-neutral rebuild: plain Postgres rows for sessions, plain Redis for the
+queue, the S3 API for blobs, 100% environment-variable config, no vendor SDK in
+business logic. Full rationale in `docs/recovery-audit.md`.
 
-```bash
-cp .env.example .env
-# Edit .env with your settings (SECRET_KEY at minimum)
-docker compose up --build
-```
+## Key capabilities
 
-- Frontend: http://localhost:5173
-- API: http://localhost:8000
-- API docs: http://localhost:8000/api/docs
-
-### Without Docker
-
-**Prerequisites:** Python 3.11+, Node.js 22+, PostgreSQL 16, Redis 7
-
-```bash
-# Backend
-cd apps/api
-python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
-alembic upgrade head
-uvicorn app.main:app --reload --port 8000
-
-# Frontend (separate terminal)
-cd apps/web
-npm install
-npm run dev
-
-# Worker (separate terminal)
-cd apps/worker
-python -m app.main
-```
-
-## Commands
-
-```bash
-make dev          # Start all with Docker
-make dev-api      # API only (local)
-make dev-web      # Frontend only (local)
-make dev-worker   # Worker only (local)
-make test         # Run all tests
-make test-e2e     # Browser tests (Playwright)
-make lint         # Lint all code
-make typecheck    # Type-check all code
-make verify       # Full verification (lint + typecheck + test)
-make migrate      # Run database migrations
-make seed         # Seed development data
-make backup       # Create database backup
-make restore      # Restore from backup
-```
-
-## Environment Variables
-
-See `.env.example` for the complete list. Key variables:
-
-| Variable | Purpose |
-|----------|---------|
-| `DATABASE_URL` | PostgreSQL connection (async) |
-| `REDIS_URL` | Redis connection |
-| `SECRET_KEY` | Session encryption key |
-| `STORAGE_BACKEND` | `local` or `s3` |
-| `WORKER_AUTH_SECRET` | Worker-to-API auth |
-
-**Never commit `.env` to source control.**
-
-## What's Implemented
-
-| Area | Status |
+| Area | State |
 |---|---|
-| Auth (register/login/logout/me), Argon2id, server-side sessions | Implemented, tested |
-| RBAC (6 roles), CSRF (double-submit), rate limiting | Implemented, tested |
-| Projects, Engagements, Scope rules + 8-point scope validator | Implemented, tested |
-| Runs (full state machine, transitions, approvals, cancel) | Implemented, tested |
-| Evidence (SHA-256 hashing, local/S3 storage, verification lifecycle) | Implemented, tested |
-| Findings (candidate → verified → report_ready lifecycle) | Implemented, tested |
-| Reports (draft → final, Markdown/HTML/JSON export) | Implemented, tested |
-| React SPA (14 pages: dashboard, projects, runs, evidence, findings, reports, workflows, approvals, audit, agents, settings) | Implemented |
-| Worker (claims run steps via worker-callback API, executes via provider, reports results) | Implemented, verified end-to-end against a live stack |
-| AI provider adapters (mock/OpenAI/OpenRouter/local) | Implemented, tested (mock; OpenAI-compatible ones share one HTTP path) |
-| Worker-callback API (`/api/worker/runs/{id}/claim`\|`steps`\|`transition`) | Implemented — per-step scope re-validation, worker-attributed audit trail |
-| Playwright e2e suite | Scaffolded in `tests/e2e/`, not yet executed |
-
-See `docs/completion-report.md` for the full, itemized status and remaining risks.
+| Auth (register/login/logout/me), Argon2id, server-side sessions, CSRF, per-IP rate limiting | Implemented, tested |
+| RBAC (6 roles), ownership isolation on every resource fetch | Implemented, tested |
+| Projects, engagements, scope rules + 8-point default-deny scope validator | Implemented, tested |
+| Run state machine (10 states, legal-transition table, approval gates) | Implemented, tested |
+| Redis queue hand-off + authenticated worker-callback API (`claim` / `steps` / `transition`) | Implemented, tested |
+| Worker execution via pluggable provider (mock / OpenAI / OpenRouter / local) | Implemented; mock path is the demo default |
+| Evidence: SHA-256 integrity, local/S3 storage, verification lifecycle | Implemented, tested |
+| Findings: 10-state lifecycle + verification records | Implemented, tested |
+| Reports: draft→final, Markdown/HTML/JSON export, HackerOne-style template | Implemented, tested |
+| React SPA: dashboard, projects, run detail, approvals, evidence, findings, reports, audit log | Implemented |
+| Synthetic local demo target + one-command demo + scope-enforcement proof | Implemented |
 
 ## Architecture
 
-See `docs/architecture.md` for detailed system design.
-
 ```
-morphia/
-├── apps/
-│   ├── api/          # FastAPI backend (auth, projects, engagements, scope, runs, evidence, findings, reports)
-│   ├── web/          # React frontend (14 pages)
-│   └── worker/       # Redis job-queue consumer with provider adapters and callback API
-├── packages/
-│   ├── contracts/    # Shared run-state contract (run_states.ts)
-│   └── shared-types/ # Reserved for cross-package types (currently empty)
-├── infra/docker/     # Dockerfiles
-├── tests/            # Cross-service integration and Playwright E2E tests
-├── docs/             # Documentation
-└── scripts/          # Operational scripts (backup/restore)
+Browser ── React SPA (apps/web)
+   │  HTTPS / JSON / session cookie + CSRF
+   ▼
+FastAPI (apps/api) ──SQLAlchemy async──▶ PostgreSQL 16   (system of record)
+   │                                     Storage (local FS / S3)  ── evidence blobs
+   └── Redis client ──▶ Redis 7 ──BRPOP──▶ Worker (apps/worker)
+                                            │  authenticated callbacks (X-Worker-Auth)
+                                            └─▶ Provider adapter (mock / OpenAI-compatible)
 ```
 
-## Security
+Scope → validation → approval → execution → evidence → finding → report, with
+the audit log spanning the whole chain. See `docs/architecture.md` and
+`docs/assets/architecture.svg`.
 
-MORPHIA enforces:
+## Tech stack
 
-- **Authorization before execution** — every action validated against engagement scope
-- **Scope before tools** — targets checked against allowlist before any tool runs
-- **Evidence before conclusions** — findings require linked, verified evidence
-- **Human approval before intrusive actions** — approval gates at critical workflow points
-- **Portability before platform convenience** — no vendor lock-in
+| Layer | Technology |
+|-------|-----------|
+| Frontend | React 19, TypeScript, Vite 6, Tailwind CSS 4, TanStack Query |
+| API | Python 3.11+, FastAPI, Pydantic v2, SQLAlchemy 2 (async), Alembic |
+| Database | PostgreSQL 16 |
+| Queue | Redis 7 |
+| Worker | Python long-running process, provider adapters |
+| Storage | Local filesystem (dev) / S3-compatible (prod) |
+| Testing | pytest, vitest, Playwright |
 
-See `docs/security.md` for the threat model and controls.
+## Quick start
+
+**Prerequisites:** Docker + Docker Compose v2, and Python 3 on the host (for
+`.env` generation).
+
+```bash
+git clone https://github.com/Rishidar-lab/Morphia.git
+cd Morphia
+make demo          # or: ./scripts/demo.sh
+```
+
+`make demo` builds the images, starts the six services, runs migrations, seeds
+the demo workspace, verifies health, and then drives one allowed run and one
+out-of-scope run live to prove scope enforcement. It prints the UI URL and the
+ephemeral local demo credentials at the end.
+
+- Web UI: http://localhost:5173
+- API docs: http://localhost:8000/api/docs
+- Synthetic demo target: http://localhost:9000
+
+Stop it with `make demo-down`; wipe the database and rebuild with
+`make demo-reset`.
+
+### Manual
+
+```bash
+cp .env.example .env       # then set SECRET_KEY, WORKER_AUTH_SECRET, SEED_ADMIN_PASSWORD
+docker compose up -d --build
+docker compose exec -w /app/apps/api api alembic upgrade head
+docker compose exec api python -m app.seed
+```
+
+## Demo mode
+
+The seeded **"Morphia Demo Research"** workspace already contains an authorized
+engagement, an allowed scope, a completed run with a hash-verified evidence
+artifact, a verified (clearly-synthetic) finding, and a disclosure-style report.
+
+`./scripts/demo.sh --journey` (stack already up) drives two fresh runs through
+the real API and worker:
+
+- **CASE A** — target `demo-target` (in scope) → run **COMPLETED**
+- **CASE B** — target `production.example.com` (out of scope) → run **FAILED**,
+  refused by the worker's independent scope re-check, reason on the timeline
+
+The demo target (`apps/demo-target/server.py`) is a ~90-line stdlib HTTP service
+that serves fixed synthetic payloads. Nothing about the demo touches a real
+external system.
+
+For recording a walkthrough, see `docs/demo-script.md`,
+`docs/demo-shot-list.md`, `docs/demo-narration.md`, and
+`scripts/prepare-demo.sh`.
+
+## Security boundaries
+
+- **Authorization before execution** — every target validated against the
+  engagement's stored scope, never against agent-supplied claims.
+- **Scope before tools** — the 8-point check is default-deny and runs twice, in
+  two processes.
+- **Human approval before intrusive actions** — `AWAITING_PLAN_APPROVAL` /
+  `AWAITING_ACTION_APPROVAL` are explicit states.
+- **Evidence before conclusions** — a finding can't be verified without linked
+  evidence; a report can't include an unverified finding.
+- **Worker is least-privilege** — no database access, a distinct shared-secret
+  identity, restricted to callback endpoints.
+
+Threat model in `docs/security.md`; what is and isn't enforced in
+`docs/mvp-verification.md` § Security review.
+
+## Testing
+
+```bash
+make verify                       # ruff + ruff format + mypy + pytest (api & worker) + vitest
+cd apps/web && npm run build      # production build (Tailwind compiled)
+make demo && cd tests/e2e && npm test   # live Playwright MVP-journey suite
+```
+
+CI (`.github/workflows/ci.yml`) runs: Python quality, worker quality, frontend
+quality + build, Docker image build, a **service-backed integration** job
+(compose up → migrate → seed → live journey → scope proof), a **Playwright E2E**
+job (report uploaded as an artifact), and secret scanning.
+
+Current: 60 API + 8 worker + 37 web unit tests, 4 live Playwright tests — all
+green. Evidence matrix: `docs/mvp-verification.md`.
+
+## Project status
+
+**MVP / alpha.** The journey in `docs/mvp-verification.md` is fully working and
+verified against a live stack. What was fixed to get here is itemised in
+`docs/mvp-gap-analysis.md`.
+
+## Limitations
+
+- **Single-tenant demo posture.** RBAC and ownership checks are real, but there
+  is no organization/tenant model and no admin UI for user/role management.
+- **Separation of duties on approvals is not enforced** — a run's creator can
+  currently approve their own run (`docs/security.md` §1.12 describes this as a
+  control).
+- **The worker executes an LLM step, not real security tooling.** A step's
+  output is a model response, not proof a scan ran. Real tool adapters
+  (nuclei/subfinder/…) are a separate, unbuilt feature.
+- **SSRF deny-list and upload magic-byte validation are described in
+  `docs/security.md` but not implemented.**
+- **No production deployment configuration** — the compose file is dev-grade
+  (bind mounts, dev credentials, `DEBUG=true`, no TLS). `infra/deployment/` is
+  empty.
+- **Backup/restore scripts exist but are unexercised.**
+- **Provider selection is process-wide**, not per-run.
+
+## Roadmap
+
+- Organization/tenant model + user & role management UI
+- Enforce approver ≠ run creator
+- SSRF deny-list + DNS-rebinding checks in the scope validator
+- Content-type/magic-byte validation on evidence upload
+- Real tool-adapter execution in the worker, sandboxed
+- Production deployment manifests + a verified backup/restore drill
+- Per-run / per-engagement provider selection
 
 ## License
 

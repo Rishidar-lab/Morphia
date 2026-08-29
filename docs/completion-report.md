@@ -1,5 +1,10 @@
 # MORPHIA Completion Report
 
+> **Superseded (2026-08-30).** This report predates the MVP hardening pass and
+> its sandbox had no Docker/Postgres/Redis. For the current, live-stack-verified
+> status see **`docs/mvp-verification.md`** and **`docs/mvp-gap-analysis.md`**.
+> Kept below as historical record.
+
 **Date:** 2026-08-18
 **Final status: PARTIALLY COMPLETED — professionalization pass verified locally**
 

@@ -1,0 +1,132 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 720" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#64748b"/>
+    </marker>
+    <style>
+      .bg    { fill: #0a0e17; }
+      .box   { fill: #111827; stroke: #1f2937; stroke-width: 1.5; rx: 10; }
+      .accent{ fill: #0b1220; stroke: #2563eb; stroke-width: 1.5; }
+      .title { fill: #e5e7eb; font-size: 15px; font-weight: 700; }
+      .sub   { fill: #9ca3af; font-size: 11.5px; }
+      .edge  { stroke: #64748b; stroke-width: 1.5; fill: none; }
+      .edgelbl { fill: #94a3b8; font-size: 10.5px; }
+      .h     { fill: #93c5fd; font-size: 12px; font-weight: 700; letter-spacing: .08em; }
+      .pipe  { fill: #0f172a; stroke: #334155; stroke-width: 1.25; }
+      .pipetxt { fill: #cbd5e1; font-size: 11px; font-weight: 600; }
+    </style>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="900" height="720"/>
+  <text x="40" y="42" fill="#60a5fa" font-size="20" font-weight="700" letter-spacing=".12em">MORPHIA</text>
+  <text x="40" y="62" class="sub">Human-in-the-loop orchestration for authorized security research</text>
+
+  <!-- ── system column ─────────────────────────────── -->
+  <text x="40" y="100" class="h">SYSTEM</text>
+
+  <!-- Browser -->
+  <rect class="box" x="40" y="115" width="200" height="60" rx="10"/>
+  <text x="56" y="140" class="title">Browser</text>
+  <text x="56" y="159" class="sub">React 19 SPA · apps/web</text>
+
+  <!-- API -->
+  <rect class="accent" x="40" y="225" width="200" height="96" rx="10"/>
+  <text x="56" y="250" class="title">FastAPI · apps/api</text>
+  <text x="56" y="270" class="sub">auth · RBAC · scope validation</text>
+  <text x="56" y="286" class="sub">run state machine</text>
+  <text x="56" y="302" class="sub">evidence · findings · reports</text>
+
+  <!-- data stores -->
+  <rect class="box" x="40" y="380" width="120" height="70" rx="10"/>
+  <text x="54" y="404" class="title" font-size="13">PostgreSQL</text>
+  <text x="54" y="421" class="sub">system of</text>
+  <text x="54" y="435" class="sub">record</text>
+
+  <rect class="box" x="176" y="380" width="120" height="70" rx="10"/>
+  <text x="190" y="404" class="title" font-size="13">Redis</text>
+  <text x="190" y="421" class="sub">job queue,</text>
+  <text x="190" y="435" class="sub">rate limits</text>
+
+  <rect class="box" x="312" y="380" width="120" height="70" rx="10"/>
+  <text x="326" y="404" class="title" font-size="13">Storage</text>
+  <text x="326" y="421" class="sub">local FS / S3</text>
+  <text x="326" y="435" class="sub">evidence blobs</text>
+
+  <!-- Worker -->
+  <rect class="box" x="176" y="510" width="200" height="86" rx="10"/>
+  <text x="192" y="535" class="title">Worker · apps/worker</text>
+  <text x="192" y="554" class="sub">BRPOP consumer, no DB access</text>
+  <text x="192" y="570" class="sub">re-validates scope per step</text>
+  <text x="192" y="586" class="sub">executes via provider adapter</text>
+
+  <!-- Provider -->
+  <rect class="box" x="176" y="636" width="200" height="56" rx="10"/>
+  <text x="192" y="660" class="title" font-size="13">Provider adapter</text>
+  <text x="192" y="678" class="sub">mock (default) · OpenAI-compatible</text>
+
+  <!-- edges -->
+  <path class="edge" d="M140 175 L140 225" marker-end="url(#arrow)"/>
+  <text x="150" y="204" class="edgelbl">HTTPS / JSON</text>
+  <text x="150" y="217" class="edgelbl">cookie + CSRF</text>
+
+  <path class="edge" d="M110 321 L110 380" marker-end="url(#arrow)"/>
+  <text x="60" y="352" class="edgelbl">SQLAlchemy</text>
+
+  <path class="edge" d="M170 321 L228 380" marker-end="url(#arrow)"/>
+  <text x="212" y="352" class="edgelbl">enqueue</text>
+
+  <path class="edge" d="M210 321 L360 380" marker-end="url(#arrow)"/>
+
+  <path class="edge" d="M236 450 L266 510" marker-end="url(#arrow)"/>
+  <text x="248" y="486" class="edgelbl">BRPOP {run_id}</text>
+
+  <path class="edge" d="M276 596 L276 636" marker-end="url(#arrow)"/>
+
+  <!-- worker back to API -->
+  <path class="edge" d="M376 553 C 470 553, 470 273, 244 273" marker-end="url(#arrow)"/>
+  <text x="392" y="420" class="edgelbl">authenticated callbacks</text>
+  <text x="392" y="433" class="edgelbl">X-Worker-Auth</text>
+  <text x="392" y="446" class="edgelbl">claim · steps · transition</text>
+
+  <path class="edge" d="M376 660 C 470 660, 470 470, 336 450" marker-end="url(#arrow)"/>
+  <text x="392" y="560" class="edgelbl">LLM step (mock =</text>
+  <text x="392" y="573" class="edgelbl">deterministic, $0)</text>
+
+  <!-- ── authorization pipeline ──────────────────────── -->
+  <text x="560" y="100" class="h">AUTHORIZATION PIPELINE</text>
+  <text x="560" y="118" class="sub">every run passes through, in order</text>
+
+  <g>
+    <rect class="pipe" x="560" y="132" width="300" height="40" rx="8"/>
+    <text x="576" y="157" class="pipetxt">Engagement scope  (include / exclude)</text>
+
+    <rect class="pipe" x="560" y="188" width="300" height="40" rx="8"/>
+    <text x="576" y="213" class="pipetxt">8-point validation  · default-deny · API + worker</text>
+
+    <rect class="pipe" x="560" y="244" width="300" height="40" rx="8"/>
+    <text x="576" y="269" class="pipetxt">Human approval  · AWAITING_PLAN_APPROVAL</text>
+
+    <rect class="pipe" x="560" y="300" width="300" height="40" rx="8"/>
+    <text x="576" y="325" class="pipetxt">Execution  · worker claims &amp; runs the step</text>
+
+    <rect class="pipe" x="560" y="356" width="300" height="40" rx="8"/>
+    <text x="576" y="381" class="pipetxt">Evidence  · SHA-256 · provenance</text>
+
+    <rect class="pipe" x="560" y="412" width="300" height="40" rx="8"/>
+    <text x="576" y="437" class="pipetxt">Finding  · candidate → verified</text>
+
+    <rect class="pipe" x="560" y="468" width="300" height="40" rx="8"/>
+    <text x="576" y="493" class="pipetxt">Report  · Markdown / HTML / JSON</text>
+
+    <path class="edge" d="M710 172 L710 188" marker-end="url(#arrow)"/>
+    <path class="edge" d="M710 228 L710 244" marker-end="url(#arrow)"/>
+    <path class="edge" d="M710 284 L710 300" marker-end="url(#arrow)"/>
+    <path class="edge" d="M710 340 L710 356" marker-end="url(#arrow)"/>
+    <path class="edge" d="M710 396 L710 412" marker-end="url(#arrow)"/>
+    <path class="edge" d="M710 452 L710 468" marker-end="url(#arrow)"/>
+  </g>
+
+  <rect x="560" y="536" width="300" height="44" rx="8" fill="#0b1220" stroke="#3f3f46" stroke-width="1.25"/>
+  <text x="576" y="556" class="edgelbl" font-size="11" fill="#a1a1aa">Append-only audit log spans every step:</text>
+  <text x="576" y="571" class="edgelbl" font-size="11" fill="#a1a1aa">auth · scope · approvals · transitions · evidence · reports</text>
+</svg>
