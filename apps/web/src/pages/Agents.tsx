@@ -130,6 +130,11 @@ export default function Agents() {
         </p>
       </div>
 
+      <div className="mb-5 rounded-md border border-amber-500/25 bg-amber-500/5 px-3 py-2 text-xs text-amber-300/90">
+        Reference view. Agent profiles are defined in server-side config today;
+        in-app management (<code>GET /api/v1/agents</code>) is on the roadmap.
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {DEFAULT_PROFILES.map((profile) => (
           <div

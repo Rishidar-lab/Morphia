@@ -202,6 +202,11 @@ export default function Workflows() {
         </button>
       </div>
 
+      <div className="mb-5 rounded-md border border-amber-500/25 bg-amber-500/5 px-3 py-2 text-xs text-amber-300/90">
+        Reference view. These are the built-in orchestration templates; authoring
+        and a <code>GET /api/v1/workflows</code> endpoint are on the roadmap.
+      </div>
+
       {isLoading && <LoadingSkeleton rows={3} />}
 
       {isError && !notImplemented && (
