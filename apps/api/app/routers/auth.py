@@ -1,20 +1,22 @@
 """Authentication routes: register, login, logout, me."""
 
-from fastapi import APIRouter, Depends, HTTPException, Response, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.database import get_db
+from app.core.limiter import limiter
 from app.core.security import (
-    hash_password,
-    verify_password,
-    generate_session_token,
     generate_csrf_token,
+    generate_session_token,
+    hash_password,
     session_expiry,
+    verify_password,
 )
-from app.models.auth import User, Session
+from app.models.audit import AuditEvent, AuditEventType
+from app.models.auth import Session, User
 
 router = APIRouter()
 settings = get_settings()
@@ -45,9 +47,7 @@ class UserResponse(BaseModel):
 GENERIC_AUTH_ERROR = "Invalid email or password."
 
 
-async def get_current_user(
-    request: Request, db: AsyncSession = Depends(get_db)
-) -> User:
+async def get_current_user(request: Request, db: AsyncSession = Depends(get_db)) -> User:
     """Extract and validate the session from cookie or Authorization header."""
     token = request.cookies.get("sid")
     if not token:
@@ -58,15 +58,15 @@ async def get_current_user(
     if not token:
         raise HTTPException(status_code=401, detail="Authentication required.")
 
-    result = await db.execute(
+    session_result = await db.execute(
         select(Session).where(Session.token == token, Session.is_valid())
     )
-    session = result.scalar_one_or_none()
+    session = session_result.scalar_one_or_none()
     if not session:
         raise HTTPException(status_code=401, detail="Session expired or invalid.")
 
-    result = await db.execute(select(User).where(User.id == session.user_id))
-    user = result.scalar_one_or_none()
+    user_result = await db.execute(select(User).where(User.id == session.user_id))
+    user: User | None = user_result.scalar_one_or_none()
     if not user or not user.is_active:
         raise HTTPException(status_code=401, detail="Account is inactive.")
 
@@ -75,7 +75,10 @@ async def get_current_user(
 
 # ── Routes ───────────────────────────────────────────────
 @router.post("/register", response_model=UserResponse, status_code=201)
-async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)) -> User:
+@limiter.limit(settings.auth_rate_limit)
+async def register(
+    request: Request, body: RegisterRequest, db: AsyncSession = Depends(get_db)
+) -> User:
     """Register a new user account."""
     existing = await db.execute(select(User).where(User.email == body.email))
     if existing.scalar_one_or_none():
@@ -92,8 +95,12 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)) ->
 
 
 @router.post("/login")
+@limiter.limit(settings.auth_rate_limit)
 async def login(
-    body: LoginRequest, response: Response, db: AsyncSession = Depends(get_db)
+    request: Request,
+    body: LoginRequest,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
 ) -> dict[str, object]:
     """Authenticate and create a session."""
     result = await db.execute(select(User).where(User.email == body.email))
@@ -114,7 +121,21 @@ async def login(
         expires_at=session_expiry(settings.session_lifetime_hours),
     )
     db.add(session)
-    await db.flush()
+    db.add(
+        AuditEvent(
+            event_type=AuditEventType.AUTH_LOGIN,
+            actor_id=user.id,
+            target_type="session",
+            target_id=session.id,
+            action="auth.login",
+            metadata_json=None,
+        )
+    )
+    # Commit before returning: get_db() otherwise commits only after the
+    # response is sent, leaving a window where the client has the session
+    # cookie but the session row is not yet visible to the next request
+    # (a fresh GET /api/auth/me or a dashboard query would 401).
+    await db.commit()
 
     response.set_cookie(
         key="sid",
@@ -141,6 +162,17 @@ async def logout(
         result = await db.execute(select(Session).where(Session.token == token))
         session = result.scalar_one_or_none()
         if session:
+            db.add(
+                AuditEvent(
+                    event_type=AuditEventType.AUTH_LOGOUT,
+                    actor_id=session.user_id,
+                    target_type="session",
+                    target_id=session.id,
+                    action="auth.logout",
+                    metadata_json=None,
+                )
+            )
+            await db.flush()
             await db.delete(session)
 
     response.delete_cookie("sid")

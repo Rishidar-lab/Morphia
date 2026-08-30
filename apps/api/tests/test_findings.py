@@ -1,7 +1,7 @@
 """Finding route tests: creation, lifecycle transitions, severity validation, verification."""
 
 import pytest
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 
 from app.core.database import async_session_factory
@@ -242,7 +242,11 @@ async def test_verification_denied_result_rejects_finding(client: AsyncClient):
 
     verify_resp = await client.post(
         f"/api/v1/findings/{finding_id}/verify",
-        json={"method": "Attempted reproduction", "result": "denied", "notes": "Could not reproduce."},
+        json={
+            "method": "Attempted reproduction",
+            "result": "denied",
+            "notes": "Could not reproduce.",
+        },
     )
     assert verify_resp.status_code == 201
 

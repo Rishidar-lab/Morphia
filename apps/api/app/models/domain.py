@@ -1,16 +1,18 @@
 """Core domain models: Projects, Engagements, Scope, Assets."""
 
-from datetime import datetime, timezone, date
+from datetime import date, datetime
+
 from sqlalchemy import (
+    Boolean,
     Date,
     DateTime,
     ForeignKey,
     String,
     Text,
-    Boolean,
     func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from app.core.database import Base
 from app.models.auth import generate_uuid
 
@@ -32,7 +34,9 @@ class Project(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
 
-    engagements: Mapped[list["Engagement"]] = relationship(back_populates="project", cascade="all, delete-orphan")
+    engagements: Mapped[list["Engagement"]] = relationship(
+        back_populates="project", cascade="all, delete-orphan"
+    )
 
 
 class Engagement(Base):
@@ -56,8 +60,12 @@ class Engagement(Base):
     )
 
     project: Mapped["Project"] = relationship(back_populates="engagements")
-    scope_rules: Mapped[list["ScopeRule"]] = relationship(back_populates="engagement", cascade="all, delete-orphan")
-    assets: Mapped[list["Asset"]] = relationship(back_populates="engagement", cascade="all, delete-orphan")
+    scope_rules: Mapped[list["ScopeRule"]] = relationship(
+        back_populates="engagement", cascade="all, delete-orphan"
+    )
+    assets: Mapped[list["Asset"]] = relationship(
+        back_populates="engagement", cascade="all, delete-orphan"
+    )
 
 
 class ScopeRule(Base):
@@ -68,8 +76,12 @@ class ScopeRule(Base):
         String(36), ForeignKey("engagements.id", ondelete="CASCADE"), nullable=False, index=True
     )
     rule_type: Mapped[str] = mapped_column(String(50), nullable=False)  # include, exclude
-    target_type: Mapped[str] = mapped_column(String(50), nullable=False)  # domain, ip, api, repo, mobile_app
-    pattern: Mapped[str] = mapped_column(String(500), nullable=False)  # e.g. *.example.com, 10.0.0.0/24
+    target_type: Mapped[str] = mapped_column(
+        String(50), nullable=False
+    )  # domain, ip, api, repo, mobile_app
+    pattern: Mapped[str] = mapped_column(
+        String(500), nullable=False
+    )  # e.g. *.example.com, 10.0.0.0/24
     is_wildcard: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     notes: Mapped[str] = mapped_column(Text, nullable=False, default="")
     created_at: Mapped[datetime] = mapped_column(
@@ -86,7 +98,9 @@ class Asset(Base):
     engagement_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("engagements.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    asset_type: Mapped[str] = mapped_column(String(50), nullable=False)  # domain, ip, api, repo, webapp, mobile
+    asset_type: Mapped[str] = mapped_column(
+        String(50), nullable=False
+    )  # domain, ip, api, repo, webapp, mobile
     identifier: Mapped[str] = mapped_column(String(500), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False, default="")
     is_excluded: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

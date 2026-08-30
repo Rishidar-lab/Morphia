@@ -16,7 +16,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 from app.models.auth import generate_uuid
 
-
 # Canonical verification status values for EvidenceArtifact.verification_status.
 EVIDENCE_VERIFICATION_STATUSES = {
     "unreviewed",
@@ -49,7 +48,9 @@ class EvidenceArtifact(Base):
 
     creator_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
     source: Mapped[str] = mapped_column(String(200), nullable=False, default="")
-    acquisition_timestamp: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    acquisition_timestamp: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     content_type: Mapped[str] = mapped_column(String(100), nullable=False, default="")
     original_filename: Mapped[str] = mapped_column(String(500), nullable=False, default="")
@@ -59,9 +60,13 @@ class EvidenceArtifact(Base):
     sha256_digest: Mapped[str] = mapped_column(String(64), nullable=False, default="")
     sensitivity: Mapped[str] = mapped_column(String(50), nullable=False, default="standard")
 
-    verification_status: Mapped[str] = mapped_column(String(50), nullable=False, default="unreviewed")
+    verification_status: Mapped[str] = mapped_column(
+        String(50), nullable=False, default="unreviewed"
+    )
 
-    reviewer_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
+    reviewer_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id"), nullable=True
+    )
     retention_deadline: Mapped[date | None] = mapped_column(Date, nullable=True)
 
     parent_id: Mapped[str | None] = mapped_column(
@@ -78,11 +83,10 @@ class EvidenceArtifact(Base):
     )
 
     parent: Mapped["EvidenceArtifact | None"] = relationship(
-        back_populates="children", remote_side=[id]
+        back_populates="children",
+        remote_side=[id],  # noqa: A003
     )
-    children: Mapped[list["EvidenceArtifact"]] = relationship(
-        back_populates="parent"
-    )
+    children: Mapped[list["EvidenceArtifact"]] = relationship(back_populates="parent")
 
 
 class EvidenceRelation(Base):
@@ -90,12 +94,20 @@ class EvidenceRelation(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
     source_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("evidence_artifacts.id", ondelete="CASCADE"), nullable=False, index=True
+        String(36),
+        ForeignKey("evidence_artifacts.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     target_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("evidence_artifacts.id", ondelete="CASCADE"), nullable=False, index=True
+        String(36),
+        ForeignKey("evidence_artifacts.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
-    relation_type: Mapped[str] = mapped_column(String(50), nullable=False)  # supplements, contradicts, supersedes
+    relation_type: Mapped[str] = mapped_column(
+        String(50), nullable=False
+    )  # supplements, contradicts, supersedes
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.models.audit import AuditEvent, AuditEventType
 from app.models.auth import User
 from app.models.domain import Project
 from app.routers.auth import get_current_user
@@ -32,7 +33,8 @@ class ProjectResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-@router.get("/", response_model=list[ProjectResponse])
+@router.get("", response_model=list[ProjectResponse])
+@router.get("/", response_model=list[ProjectResponse], include_in_schema=False)
 async def list_projects(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -44,7 +46,8 @@ async def list_projects(
     return list(result.scalars().all())
 
 
-@router.post("/", response_model=ProjectResponse, status_code=201)
+@router.post("", response_model=ProjectResponse, status_code=201)
+@router.post("/", response_model=ProjectResponse, status_code=201, include_in_schema=False)
 async def create_project(
     body: CreateProjectRequest,
     user: User = Depends(get_current_user),
@@ -57,6 +60,18 @@ async def create_project(
         owner_id=user.id,
     )
     db.add(project)
+    await db.flush()
+
+    db.add(
+        AuditEvent(
+            event_type=AuditEventType.PROJECT_CREATE,
+            actor_id=user.id,
+            target_type="project",
+            target_id=project.id,
+            action="project.create",
+            metadata_json={"name": project.name},
+        )
+    )
     await db.flush()
     return project
 

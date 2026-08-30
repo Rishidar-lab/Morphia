@@ -19,7 +19,7 @@ The 8 points:
 import fnmatch
 import ipaddress
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -48,7 +48,9 @@ class ScopeResult:
 
     @classmethod
     def deny(cls, reason: str, checks_passed: list[str] | None = None) -> "ScopeResult":
-        return cls(allowed=False, reason=reason, checks_passed=checks_passed or [], checks_failed=[reason])
+        return cls(
+            allowed=False, reason=reason, checks_passed=checks_passed or [], checks_failed=[reason]
+        )
 
     @classmethod
     def allow(cls, checks_passed: list[str]) -> "ScopeResult":
@@ -189,9 +191,7 @@ class ScopeValidator:
         )
         return list(result.scalars().all())
 
-    def _match_rule(
-        self, rules: list[ScopeRule], target: str, rule_type: str
-    ) -> ScopeRule | None:
+    def _match_rule(self, rules: list[ScopeRule], target: str, rule_type: str) -> ScopeRule | None:
         for rule in rules:
             if rule.rule_type != rule_type:
                 continue
@@ -290,7 +290,7 @@ class ScopeValidator:
                 "target": target,
                 "allowed": allowed,
                 "reason": reason,
-                "checked_at": datetime.now(timezone.utc).isoformat(),
+                "checked_at": datetime.now(UTC).isoformat(),
             },
         )
         self.db.add(event)

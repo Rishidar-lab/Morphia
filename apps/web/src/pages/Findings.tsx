@@ -1,7 +1,9 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api, ApiError } from "@/lib/api";
 import type { Finding, FindingSeverity, FindingState } from "@/lib/types";
+import { FINDING_STATES } from "@/lib/types";
 import { LoadingSkeleton, EmptyState, ErrorState } from "@/components/ListStates";
 
 const SEVERITY_STYLE: Record<FindingSeverity, string> = {
@@ -12,28 +14,19 @@ const SEVERITY_STYLE: Record<FindingSeverity, string> = {
   info: "bg-gray-500/10 text-gray-400 border-gray-500/30",
 };
 
-const STATE_LABEL: Record<FindingState, string> = {
-  candidate: "Candidate",
-  verified: "Verified",
-  rejected: "Rejected",
-  remediated: "Remediated",
-  accepted_risk: "Accepted Risk",
-};
-
-const FINDING_STATES: FindingState[] = [
-  "candidate",
-  "verified",
-  "rejected",
-  "remediated",
-  "accepted_risk",
-];
+function stateLabel(state: FindingState): string {
+  return state
+    .split("_")
+    .map((w) => w[0].toUpperCase() + w.slice(1))
+    .join(" ");
+}
 
 function SeverityBadge({ severity }: { severity: FindingSeverity }) {
   return (
     <span
       className={
         "inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full border capitalize " +
-        SEVERITY_STYLE[severity]
+        (SEVERITY_STYLE[severity] ?? SEVERITY_STYLE.info)
       }
     >
       {severity}
@@ -47,7 +40,6 @@ export default function Findings() {
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["findings"],
     queryFn: () => api.get<Finding[]>("/api/v1/findings"),
-    retry: false,
   });
 
   const filtered = useMemo(() => {
@@ -55,8 +47,6 @@ export default function Findings() {
     if (stateFilter === "all") return items;
     return items.filter((f) => f.state === stateFilter);
   }, [data, stateFilter]);
-
-  const notImplemented = isError && error instanceof ApiError && error.status === 404;
 
   return (
     <div>
@@ -76,7 +66,7 @@ export default function Findings() {
           <option value="all">All states</option>
           {FINDING_STATES.map((s) => (
             <option key={s} value={s}>
-              {STATE_LABEL[s]}
+              {stateLabel(s)}
             </option>
           ))}
         </select>
@@ -84,21 +74,21 @@ export default function Findings() {
 
       {isLoading && <LoadingSkeleton rows={4} />}
 
-      {isError && !notImplemented && (
+      {isError && (
         <ErrorState
           message={error instanceof ApiError ? error.message : "Failed to load findings."}
           onRetry={() => refetch()}
         />
       )}
 
-      {(notImplemented || (!isLoading && !isError && filtered.length === 0)) && (
+      {!isLoading && !isError && filtered.length === 0 && (
         <EmptyState
           title="No findings yet"
           description="Findings identified by agent runs will appear here as candidates, then move through verification to a final disposition."
         />
       )}
 
-      {!isLoading && !isError && !notImplemented && filtered.length > 0 && (
+      {!isLoading && !isError && filtered.length > 0 && (
         <div className="bg-gray-900/50 border border-gray-800 rounded-lg overflow-hidden overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -106,7 +96,7 @@ export default function Findings() {
                 <th className="px-4 py-3 font-medium">Title</th>
                 <th className="px-4 py-3 font-medium">Severity</th>
                 <th className="px-4 py-3 font-medium">CWE</th>
-                <th className="px-4 py-3 font-medium">Affected Asset</th>
+                <th className="px-4 py-3 font-medium">Affected scope</th>
                 <th className="px-4 py-3 font-medium">State</th>
                 <th className="px-4 py-3 font-medium">Date</th>
               </tr>
@@ -118,18 +108,23 @@ export default function Findings() {
                   className="border-b border-gray-800/60 last:border-0 hover:bg-gray-800/30 transition-colors"
                 >
                   <td className="px-4 py-3 text-gray-100 font-medium max-w-xs truncate">
-                    {finding.title}
+                    <Link
+                      to={`/projects/${finding.project_id}`}
+                      className="hover:text-blue-400 transition-colors"
+                    >
+                      {finding.title}
+                    </Link>
                   </td>
                   <td className="px-4 py-3">
                     <SeverityBadge severity={finding.severity} />
                   </td>
                   <td className="px-4 py-3 text-gray-500 font-mono text-xs">
-                    {finding.cwe || "—"}
+                    {finding.cwe_id || "—"}
                   </td>
-                  <td className="px-4 py-3 text-gray-400 max-w-xs truncate">
-                    {finding.affected_asset}
+                  <td className="px-4 py-3 text-gray-400 max-w-xs truncate font-mono text-xs">
+                    {finding.affected_scope || "—"}
                   </td>
-                  <td className="px-4 py-3 text-gray-400">{STATE_LABEL[finding.state]}</td>
+                  <td className="px-4 py-3 text-gray-400">{stateLabel(finding.state)}</td>
                   <td className="px-4 py-3 text-gray-500">
                     {new Date(finding.created_at).toLocaleDateString()}
                   </td>

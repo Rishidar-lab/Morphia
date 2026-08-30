@@ -1,16 +1,20 @@
 # MORPHIA Completion Report
 
-**Date:** 2026-08-05
-**Final status: PARTIALLY COMPLETED**
+> **Superseded (2026-08-30).** This report predates the MVP hardening pass and
+> its sandbox had no Docker/Postgres/Redis. For the current, live-stack-verified
+> status see **`docs/mvp-verification.md`** and **`docs/mvp-gap-analysis.md`**.
+> Kept below as historical record.
+
+**Date:** 2026-08-18
+**Final status: PARTIALLY COMPLETED — professionalization pass verified locally**
 
 This report is intentionally honest about what has and has not been verified.
 The backend (FastAPI), data model, security controls, and frontend (React
 SPA) are implemented and have unit/integration test coverage for the API
 layer. What is **not** yet done: the Playwright end-to-end suite has been
-written but not executed against a live stack in this environment, there is
-no real database this was validated against in this sandbox, the AI provider
-integrations are mock-only, and there is no production deployment
-configuration or a real backup/restore drill. Treat this document as a
+written but not executed against a live stack in this environment, and no
+PostgreSQL/Redis service stack was available in this sandbox. Provider
+execution is implemented behind mock and OpenAI-compatible adapters, but production deployment configuration and a real backup/restore drill remain outstanding. Treat this document as a
 handoff checklist, not a certification of production readiness.
 
 ## Addendum — 2026-08-10: worker execution path implemented, and this report's own claims verified for the first time
@@ -134,7 +138,7 @@ FastAPI (apps/api) ── SQLAlchemy 2 async ──▶ PostgreSQL 16 (system of 
         └── Redis client (queue push, rate limiting) ──▶ Redis 7
                                                               │
                                                        BRPOP  ▼
-                                              apps/worker (job consumer skeleton)
+                                              apps/worker (queue consumer + provider adapters)
 ```
 
 - **Backend:** Python 3.11+, FastAPI, Pydantic v2, SQLAlchemy 2 (async, `asyncpg`), Alembic migrations.
@@ -170,7 +174,9 @@ Full detail in `docs/architecture.md`.
 - `packages/contracts/src/run_states.ts` — the canonical, hand-synchronized run-state contract shared conceptually between the Python `RunState` enum and the TypeScript frontend.
 
 **Worker (`apps/worker/app/main.py`):**
-- Redis connection, heartbeat coroutine, and a `BRPOP morphia:jobs` consumer loop that receives and logs job payloads.
+- Redis connection, heartbeat coroutine, and a `BRPOP morphia:jobs` consumer loop.
+- Provider execution through the `ProviderAdapter` interface, with mock/OpenAI/OpenRouter/local adapters.
+- API-mediated claim, scope re-validation, step result submission, and run transition callbacks; the worker has no direct database access.
 
 **Operations:**
 - `Makefile` with `dev`, `build`, `test`, `lint`, `typecheck`, `format`, `migrate`, `migrate-new`, `seed`, `backup`, `restore`, `verify`, `clean` targets.
@@ -184,11 +190,11 @@ Full detail in `docs/architecture.md`.
 
 Being explicit about gaps rather than glossing over them:
 
-1. **Real AI provider integrations.** `docs/architecture.md` §11 describes a provider abstraction (Mock, OpenAI, OpenRouter, local/Ollama). Only the *design* and the corresponding (mostly commented-out) environment variables in `.env.example` exist. No provider adapter classes, no API-calling code, no cost-accounting logic have been written. The worker does not call any LLM today — it only logs receipt of a job. Any run that reaches `RUNNING` in the current codebase does not actually get executed by a provider; execution logic is unimplemented.
-2. **Playwright execution.** The e2e suite in `tests/e2e/` (this deliverable) is written and scaffolded — config, dependencies, and 15 test cases across 7 `describe` blocks — but it has not been run in this sandbox (no Node/browser stack was launched against a live API+DB here). It must be executed locally or in CI before it can be treated as passing evidence. See `docs/test-evidence.md`.
-3. **Production deployment configuration.** `docker-compose.yml` is a development/reference compose file (bind-mounted code, dev-grade Postgres credentials, no TLS termination, no resource limits, no orchestrator manifests). There is no Kubernetes/ECS/Nomad manifest, no CI/CD pipeline definition, no secrets-manager integration, and no reverse-proxy/TLS configuration anywhere in the repo (`infra/deployment/` is an empty placeholder directory).
+1. **Production provider operations.** Provider adapters for mock, OpenAI, OpenRouter, and local OpenAI-compatible endpoints exist and the mock path is unit-tested. Live external-provider calls, cost accounting, per-run provider selection, and provider-specific operational controls remain outside the verified release scope.
+2. **Playwright execution.** The e2e suite in `tests/e2e/` (this deliverable) is written and scaffolded — config, dependencies, and 15 test cases across 9 `describe` blocks — but it has not been run in this sandbox (no Node/browser stack was launched against a live API+DB here). It must be executed locally or in CI before it can be treated as passing evidence. See `docs/test-evidence.md`.
+3. **Production deployment configuration.** `docker-compose.yml` is a development/reference compose file (bind-mounted code, dev-grade Postgres credentials, no TLS termination, no resource limits, no orchestrator manifests). GitHub Actions CI now validates Python, frontend, dependency, secret, and Docker quality gates. There is still no Kubernetes/ECS/Nomad manifest, secrets-manager integration, or reverse-proxy/TLS configuration (`infra/deployment/` remains an empty placeholder directory).
 4. **Real backup/restore test.** `scripts/backup.sh` and `scripts/restore.sh` are implemented and reasonable (`pg_dump | gzip`, `gunzip | psql` with a confirmation prompt), but neither has been executed against a running PostgreSQL instance in this environment to confirm an actual dump-and-restore round-trip succeeds.
-5. **Worker test coverage.** `apps/worker/tests/` contains only an empty `__init__.py` — zero worker-specific tests exist, consistent with the worker itself being a minimal skeleton.
+5. **Worker execution-loop coverage.** Provider adapters have 8 unit tests, but the Redis consumer loop and HTTP callback client do not yet have live integration tests against Redis and the API.
 6. **Frontend/backend enum drift.** `apps/web/src/lib/types.ts` defines `FindingState` with 5 values (`candidate | verified | rejected | remediated | accepted_risk`) while the backend's `Finding.state` enum (`apps/api/app/models/findings.py`) has 10 values (`candidate, needs_evidence, needs_reproduction, verified, rejected, duplicate, report_ready, submitted, triaged, resolved`). Similarly, the frontend's `ReportFormat` type includes `pdf`, which the backend does not implement (`markdown | html | json` only). These should be reconciled before the frontend is considered a faithful client of the API.
 
 ## 5. Security Controls Implemented
@@ -212,7 +218,7 @@ Full threat-model detail (IDOR, XSS, malicious uploads, command injection, promp
 
 ## 6. Test Evidence
 
-**No commands have been executed against a live stack as part of producing this report.** See `docs/test-evidence.md` for the full command list, each currently marked `PENDING`, along with exact instructions for running the full verification suite locally (`make verify`, `make test-e2e`) and recording real results.
+Local verification has been executed and recorded in `docs/test-evidence.md`: API 57 tests passed with the disposable SQLite harness, worker 8 tests passed, frontend lint/typecheck/tests/build passed, and Ruff/mypy passed. Docker Compose, PostgreSQL/Redis-backed integration, Playwright, and backup/restore remain unexecuted because those services were unavailable in the sandbox.
 
 ## 7. Environment Variables
 
@@ -240,12 +246,13 @@ Full threat-model detail (IDOR, XSS, malicious uploads, command injection, promp
 | `S3_ACCESS_KEY_ID` | S3 access key. | *(commented out; required if `STORAGE_BACKEND=s3`)* |
 | `S3_SECRET_ACCESS_KEY` | S3 secret key. | *(commented out; required if `STORAGE_BACKEND=s3`)* |
 | `S3_REGION` | S3 region. | `us-east-1` |
-| `OPENAI_API_KEY` | OpenAI provider key (not yet wired to any adapter code). | *(commented out; optional)* |
+| `OPENAI_API_KEY` | OpenAI provider key for the OpenAI-compatible worker adapter. | *(commented out; optional)* |
 | `OPENAI_BASE_URL` | OpenAI-compatible base URL. | `https://api.openai.com/v1` |
-| `OPENROUTER_API_KEY` | OpenRouter provider key (not yet wired to any adapter code). | *(commented out; optional)* |
+| `OPENROUTER_API_KEY` | OpenRouter provider key for the OpenAI-compatible worker adapter. | *(commented out; optional)* |
 | `OPENROUTER_BASE_URL` | OpenRouter base URL. | `https://openrouter.ai/api/v1` |
-| `LOCAL_MODEL_URL` | Self-hosted/Ollama-compatible endpoint (not yet wired to any adapter code). | `http://localhost:11434/v1` |
+| `LOCAL_MODEL_URL` | Self-hosted/Ollama-compatible endpoint for the local provider adapter. | `http://localhost:11434/v1` |
 | `WORKER_AUTH_SECRET` | Required. Shared secret the worker uses to authenticate callbacks to the API. | *(no default — must be set)* |
+| `SEED_ADMIN_PASSWORD` | Explicit local-development password required by `make seed`; never set in production. | *(no default — must be set when seeding)* |
 | `WORKER_HEARTBEAT_INTERVAL` | Worker heartbeat interval, seconds. | `30` |
 | `WORKER_MAX_RETRIES` | Max retry attempts for a job. | `3` |
 | `ENABLE_E2E_AUTH_OVERRIDE` | Testing-only auth bypass flag. | *(commented out; test environments only)* |
@@ -297,9 +304,9 @@ make restore FILE=backups/morphia_<timestamp>.sql.gz
 ## 9. Remaining Risks
 
 1. **Unvalidated end-to-end behavior.** Because the Playwright suite has not been executed, there is no confirmed evidence that registration, login, project creation, run creation, and logout actually work together correctly through the live UI against a live API/DB. Unit and route-level tests pass in isolation, but integration through the browser is unverified.
-2. **No working execution path.** Since the worker does not call any provider, a run can be created and transitioned through approval states, but nothing will actually perform research work. This is a functional gap, not just a "nice to have" — the product's core value proposition (orchestrated, evidence-backed research) is not yet deliverable end-to-end.
+2. **Live service-backed execution is not re-verified here.** The worker/provider path is implemented and the mock flow was verified in the repository’s prior Docker-backed implementation work, but this sandbox could not repeat the live API/Redis/PostgreSQL run because Docker and those services were unavailable.
 3. **Frontend/backend type drift** (see §4.6) could cause the UI to render or filter on finding states/report formats that don't match what the API actually returns, leading to silent UI bugs (e.g., a `needs_reproduction` finding not matching any frontend filter).
 4. **Development-grade secrets and credentials** in `docker-compose.yml` and `.env.example` (e.g., `morphia_dev` password) must never be reused in any shared or production environment.
 5. **No production deployment path has been exercised.** Moving from `docker compose up` to any real hosting target (Kubernetes, ECS, bare VM fleet) will surface unknowns around TLS termination, secret injection, migration ordering, and horizontal worker scaling that are currently undocumented and untested.
 6. **Backup/restore is unverified in practice.** The scripts are reasonable but a real disaster-recovery drill (dump on one instance, restore on a clean instance, verify row-for-row equivalence) has not been performed.
-7. **Worker has zero test coverage**, so regressions in its (currently minimal) job-consumption logic would not be caught automatically as it grows.
+7. **Worker integration coverage is incomplete.** Provider behavior is unit-tested, while the Redis consumer loop and callback client still need service-backed integration tests.

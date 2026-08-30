@@ -1,7 +1,7 @@
 """Authentication, password hashing, and session utilities."""
 
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
@@ -34,4 +34,4 @@ def generate_csrf_token() -> str:
 
 def session_expiry(lifetime_hours: int = 24) -> datetime:
     """Calculate session expiry timestamp."""
-    return datetime.now(timezone.utc) + timedelta(hours=lifetime_hours)
+    return datetime.now(UTC) + timedelta(hours=lifetime_hours)

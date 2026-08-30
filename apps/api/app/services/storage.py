@@ -9,6 +9,7 @@ so the choice is driven by the `STORAGE_BACKEND` setting.
 
 from abc import ABC, abstractmethod
 from pathlib import Path
+from typing import cast
 
 from app.core.config import get_settings
 
@@ -83,7 +84,7 @@ class S3StorageBackend(StorageBackend):
         secret_access_key: str,
         endpoint_url: str = "",
     ) -> None:
-        import boto3  # local import — keeps boto3 optional for local-only deployments
+        import boto3  # type: ignore[import-untyped]  # optional SDK
 
         self.bucket_name = bucket_name
         client_kwargs: dict[str, str] = {"region_name": region}
@@ -104,13 +105,13 @@ class S3StorageBackend(StorageBackend):
         )
 
     async def download(self, path: str) -> bytes:
-        from botocore.exceptions import ClientError
+        from botocore.exceptions import ClientError  # type: ignore[import-untyped]
 
         try:
             response = self._client.get_object(Bucket=self.bucket_name, Key=path)
         except ClientError as exc:
             raise FileNotFoundError(f"No object at path '{path}'.") from exc
-        return response["Body"].read()
+        return cast(bytes, response["Body"].read())
 
     async def delete(self, path: str) -> None:
         self._client.delete_object(Bucket=self.bucket_name, Key=path)

@@ -120,9 +120,15 @@ class ReportGenerator:
                 lines.append(
                     f"- **Verification Method:** {_text(getattr(finding, 'verification_method', None))}"
                 )
-                lines.append(f"- **Expected Result:** {_text(getattr(finding, 'expected_result', None))}")
-                lines.append(f"- **Actual Result:** {_text(getattr(finding, 'actual_result', None))}")
-                lines.append(f"- **Security Impact:** {_text(getattr(finding, 'security_impact', None))}")
+                lines.append(
+                    f"- **Expected Result:** {_text(getattr(finding, 'expected_result', None))}"
+                )
+                lines.append(
+                    f"- **Actual Result:** {_text(getattr(finding, 'actual_result', None))}"
+                )
+                lines.append(
+                    f"- **Security Impact:** {_text(getattr(finding, 'security_impact', None))}"
+                )
                 lines.append(f"- **Uncertainty:** {_text(getattr(finding, 'uncertainty', None))}")
                 lines.append(f"- **Remediation:** {_text(getattr(finding, 'remediation', None))}")
                 lines.append("")
@@ -154,7 +160,7 @@ class ReportGenerator:
         status = esc(_text(getattr(report, "status", None)))
 
         def section(heading: str, body: str) -> str:
-            return f'<section><h2>{esc(heading)}</h2><p>{esc(body)}</p></section>'
+            return f"<section><h2>{esc(heading)}</h2><p>{esc(body)}</p></section>"
 
         sections_html = "".join(
             [

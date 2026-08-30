@@ -18,7 +18,7 @@ from app.models.auth import User
 from app.routers.auth import get_current_user
 
 
-class Role(str, enum.Enum):
+class Role(enum.StrEnum):
     """Canonical MORPHIA roles — single source of truth for RBAC checks."""
 
     OWNER = "owner"

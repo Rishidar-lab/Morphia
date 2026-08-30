@@ -51,8 +51,10 @@ signal.signal(signal.SIGTERM, handle_signal)
 async def heartbeat(client: aioredis.Redis, worker_id: str) -> None:
     """Send periodic heartbeat to Redis."""
     while not SHUTDOWN:
-        await client.setex(
-            f"worker:heartbeat:{worker_id}", config.HEARTBEAT_INTERVAL * 3, str(time.time())
+        await client.set(
+            f"worker:heartbeat:{worker_id}",
+            str(time.time()),
+            ex=config.HEARTBEAT_INTERVAL * 3,
         )
         await asyncio.sleep(config.HEARTBEAT_INTERVAL)
 

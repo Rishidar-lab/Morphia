@@ -1,9 +1,9 @@
 """Authentication route tests: register, login, logout, me, session expiry."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 
 from app.core.database import async_session_factory
@@ -64,7 +64,9 @@ async def test_login_with_valid_credentials(client: AsyncClient):
         json={"email": email, "password": TEST_PASSWORD, "display_name": TEST_DISPLAY_NAME},
     )
 
-    response = await client.post("/api/auth/login", json={"email": email, "password": TEST_PASSWORD})
+    response = await client.post(
+        "/api/auth/login", json={"email": email, "password": TEST_PASSWORD}
+    )
     assert response.status_code == 200
     data = response.json()
     assert data["user"]["email"] == email
@@ -80,7 +82,9 @@ async def test_login_invalid_credentials_rejected(client: AsyncClient):
         json={"email": email, "password": TEST_PASSWORD, "display_name": TEST_DISPLAY_NAME},
     )
 
-    response = await client.post("/api/auth/login", json={"email": email, "password": "wrong-password"})
+    response = await client.post(
+        "/api/auth/login", json={"email": email, "password": "wrong-password"}
+    )
     assert response.status_code == 401
     assert "Invalid email or password" in response.json()["detail"]
 
@@ -106,7 +110,9 @@ async def test_me_returns_current_user_after_login(client: AsyncClient):
         "/api/auth/register",
         json={"email": email, "password": TEST_PASSWORD, "display_name": TEST_DISPLAY_NAME},
     )
-    login_resp = await client.post("/api/auth/login", json={"email": email, "password": TEST_PASSWORD})
+    login_resp = await client.post(
+        "/api/auth/login", json={"email": email, "password": TEST_PASSWORD}
+    )
     assert login_resp.status_code == 200
 
     me_resp = await client.get("/api/auth/me")
@@ -121,7 +127,9 @@ async def test_logout_invalidates_session(client: AsyncClient):
         "/api/auth/register",
         json={"email": email, "password": TEST_PASSWORD, "display_name": TEST_DISPLAY_NAME},
     )
-    login_resp = await client.post("/api/auth/login", json={"email": email, "password": TEST_PASSWORD})
+    login_resp = await client.post(
+        "/api/auth/login", json={"email": email, "password": TEST_PASSWORD}
+    )
     client.headers["X-CSRF-Token"] = login_resp.json()["csrfToken"]
 
     logout_resp = await client.post("/api/auth/logout")
@@ -138,7 +146,9 @@ async def test_expired_session_rejected(client: AsyncClient):
         "/api/auth/register",
         json={"email": email, "password": TEST_PASSWORD, "display_name": TEST_DISPLAY_NAME},
     )
-    login_resp = await client.post("/api/auth/login", json={"email": email, "password": TEST_PASSWORD})
+    login_resp = await client.post(
+        "/api/auth/login", json={"email": email, "password": TEST_PASSWORD}
+    )
     assert login_resp.status_code == 200
 
     token = login_resp.cookies["sid"]
@@ -148,7 +158,7 @@ async def test_expired_session_rejected(client: AsyncClient):
         result = await db.execute(select(Session).where(Session.token == token))
         session = result.scalar_one_or_none()
         assert session is not None
-        session.expires_at = datetime.now(timezone.utc) - timedelta(hours=1)
+        session.expires_at = datetime.now(UTC) - timedelta(hours=1)
         await db.commit()
 
     me_resp = await client.get("/api/auth/me")

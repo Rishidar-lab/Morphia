@@ -1,7 +1,7 @@
 """Application configuration loaded from environment variables."""
 
-from pydantic_settings import BaseSettings
 from pydantic import Field
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
@@ -11,12 +11,10 @@ class Settings(BaseSettings):
     environment: str = Field(default="development", alias="ENVIRONMENT")
     debug: bool = Field(default=False, alias="DEBUG")
     secret_key: str = Field(..., alias="SECRET_KEY")
-    api_host: str = Field(default="0.0.0.0", alias="API_HOST")
+    api_host: str = Field(default="127.0.0.1", alias="API_HOST")
     api_port: int = Field(default=8000, alias="API_PORT")
     frontend_url: str = Field(default="http://localhost:5173", alias="FRONTEND_URL")
-    allowed_origins: str = Field(
-        default="http://localhost:5173", alias="ALLOWED_ORIGINS"
-    )
+    allowed_origins: str = Field(default="http://localhost:5173", alias="ALLOWED_ORIGINS")
 
     # Database
     database_url: str = Field(..., alias="DATABASE_URL")
@@ -28,9 +26,7 @@ class Settings(BaseSettings):
     # Auth
     session_lifetime_hours: int = Field(default=24, alias="SESSION_LIFETIME_HOURS")
     auth_rate_limit: str = Field(default="10/minute", alias="AUTH_RATE_LIMIT")
-    worker_auth_rate_limit: str = Field(
-        default="60/minute", alias="WORKER_AUTH_RATE_LIMIT"
-    )
+    worker_auth_rate_limit: str = Field(default="60/minute", alias="WORKER_AUTH_RATE_LIMIT")
 
     # Storage
     storage_backend: str = Field(default="local", alias="STORAGE_BACKEND")
@@ -45,9 +41,7 @@ class Settings(BaseSettings):
     worker_auth_secret: str = Field(default="", alias="WORKER_AUTH_SECRET")
 
     # Testing — NEVER set in production
-    enable_e2e_auth_override: bool = Field(
-        default=False, alias="ENABLE_E2E_AUTH_OVERRIDE"
-    )
+    enable_e2e_auth_override: bool = Field(default=False, alias="ENABLE_E2E_AUTH_OVERRIDE")
     test_owner_email: str = Field(default="", alias="TEST_OWNER_EMAIL")
 
     @property

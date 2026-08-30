@@ -130,10 +130,10 @@ function RunListItem({
                   </span>
                 )}
                 <Link
-                  to={`/projects/${run.project_id}`}
+                  to={`/runs/${run.id}`}
                   className="text-xs text-blue-400 hover:text-blue-300 ml-auto"
                 >
-                  View project →
+                  Open run →
                 </Link>
               </div>
             </div>

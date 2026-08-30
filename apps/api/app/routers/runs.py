@@ -13,14 +13,16 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.models.audit import AuditEvent, AuditEventType
 from app.models.auth import User
 from app.models.domain import Project
 from app.models.runs import (
+    TERMINAL_STATES,
     ApprovalRequest,
     Run,
     RunEvent,
     RunState,
-    TERMINAL_STATES,
+    RunStep,
     validate_transition,
 )
 from app.routers.auth import get_current_user
@@ -70,6 +72,20 @@ class RunEventResponse(BaseModel):
     to_state: str | None
     actor_id: str | None
     payload: dict | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class RunStepResponse(BaseModel):
+    id: str
+    run_id: str
+    step_number: int
+    action: str
+    status: str
+    input_data: dict | None
+    output_data: dict | None
+    error: str
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -146,7 +162,12 @@ async def create_run(
     await db.flush()
 
     await _record_event(
-        db, run, event_type="run.created", from_state=None, to_state=RunState.DRAFT, actor_id=user.id
+        db,
+        run,
+        event_type="run.created",
+        from_state=None,
+        to_state=RunState.DRAFT,
+        actor_id=user.id,
     )
 
     await db.refresh(run)
@@ -299,6 +320,17 @@ async def approve_run(
         actor_id=user.id,
         payload={"decision": "approved", "justification": body.justification},
     )
+    db.add(
+        AuditEvent(
+            event_type=AuditEventType.APPROVAL_DECIDE,
+            actor_id=user.id,
+            target_type="run",
+            target_id=run.id,
+            action="approval.approved",
+            metadata_json={"approval_type": approval_type, "to_state": next_state.value},
+        )
+    )
+    await db.flush()
 
     if next_state == RunState.QUEUED:
         await enqueue_run_job(run.id)
@@ -353,6 +385,17 @@ async def reject_run(
         actor_id=user.id,
         payload={"decision": "rejected", "justification": body.justification},
     )
+    db.add(
+        AuditEvent(
+            event_type=AuditEventType.APPROVAL_DECIDE,
+            actor_id=user.id,
+            target_type="run",
+            target_id=run.id,
+            action="approval.rejected",
+            metadata_json={"approval_type": approval_type},
+        )
+    )
+    await db.flush()
 
     await db.refresh(run)
     return run
@@ -369,6 +412,21 @@ async def list_run_events(
 
     result = await db.execute(
         select(RunEvent).where(RunEvent.run_id == run_id).order_by(RunEvent.created_at.asc())
+    )
+    return list(result.scalars().all())
+
+
+@router.get("/runs/{run_id}/steps", response_model=list[RunStepResponse])
+async def list_run_steps(
+    run_id: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[RunStep]:
+    """List the executed steps of a run, in order."""
+    await _get_owned_run(run_id, user, db)
+
+    result = await db.execute(
+        select(RunStep).where(RunStep.run_id == run_id).order_by(RunStep.step_number.asc())
     )
     return list(result.scalars().all())
 

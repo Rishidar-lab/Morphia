@@ -14,6 +14,7 @@ from app.core.config import get_settings
 from app.core.limiter import limiter
 from app.middleware.csrf import CSRFMiddleware
 from app.routers import (
+    aggregate,
     auth,
     engagements,
     evidence,
@@ -115,6 +116,7 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
 @app.middleware("http")
 async def add_request_id(request: Request, call_next: Any) -> Any:
     import uuid
+
     request_id = str(uuid.uuid4())[:12]
     request.state.request_id = request_id
     response = await call_next(request)
@@ -129,6 +131,7 @@ app.include_router(projects.router, prefix="/api/v1/projects", tags=["projects"]
 app.include_router(engagements.router, prefix="/api/v1", tags=["engagements"])
 app.include_router(scope.router, prefix="/api/v1", tags=["scope"])
 app.include_router(runs.router, prefix="/api/v1", tags=["runs"])
+app.include_router(aggregate.router, prefix="/api/v1", tags=["aggregate"])
 app.include_router(evidence.router, prefix="/api/v1", tags=["evidence"])
 app.include_router(findings.router, prefix="/api/v1", tags=["findings"])
 app.include_router(reports.router, prefix="/api/v1", tags=["reports"])

@@ -1,7 +1,7 @@
 """Authentication and authorization models."""
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import (
     Boolean,
@@ -12,6 +12,7 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.sql.elements import ColumnElement
 
 from app.core.database import Base
 
@@ -21,7 +22,7 @@ def generate_uuid() -> str:
 
 
 def utc_now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class User(Base):
@@ -40,7 +41,9 @@ class User(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
 
-    sessions: Mapped[list["Session"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    sessions: Mapped[list["Session"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
 
 
 class Session(Base):
@@ -60,6 +63,6 @@ class Session(Base):
     user: Mapped["User"] = relationship(back_populates="sessions")
 
     @classmethod
-    def is_valid(cls) -> bool:  # type: ignore[override]
+    def is_valid(cls) -> ColumnElement[bool]:
         """SQLAlchemy filter expression for non-expired sessions."""
-        return cls.expires_at > func.now()  # type: ignore[return-value]
+        return cls.expires_at > func.now()
