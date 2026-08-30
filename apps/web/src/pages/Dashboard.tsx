@@ -81,7 +81,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-12 gap-4">
         {/* Left: engagement / scope / operation */}
         <div className="col-span-12 lg:col-span-8 space-y-4">
-          <div className="rounded-[6px] overflow-hidden" style={{ background: "var(--bg-panel)", border: "1px solid var(--border-default)" }}>
+          <div data-testid="current-operation" className="rounded-[6px] overflow-hidden" style={{ background: "var(--bg-panel)", border: "1px solid var(--border-default)" }}>
             <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
               <span className="mono text-[11px] tracking-[0.08em] font-medium" style={{ color: "var(--text-faint)" }}>CURRENT OPERATION</span>
               <Link to="/runs" className="mono text-[11px]" style={{ color: "var(--text-muted)" }}>{runs.length} runs →</Link>

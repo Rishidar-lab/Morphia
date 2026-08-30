@@ -70,7 +70,7 @@ export function AuthorizationBoundary({
   const denied = rules.filter((r) => r.rule_type === "exclude");
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-testid="authorization-boundary">
       {/* Policy evaluator */}
       <div className="rounded-[6px] p-4" style={{ background: "var(--bg-panel)", border: "1px solid var(--border-default)" }}>
         <p className="text-[11px] tracking-[0.1em] font-semibold" style={{ color: "var(--text-faint)" }}>

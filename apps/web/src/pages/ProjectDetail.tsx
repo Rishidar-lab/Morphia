@@ -402,7 +402,7 @@ function ScopeRuleRow({
 
   return (
     <>
-      <div className="flex items-center justify-between gap-4 py-2.5 px-3 border-b border-[var(--border-default)]/60 last:border-0">
+      <div data-testid="scope-rule" className="flex items-center justify-between gap-4 py-2.5 px-3 border-b border-[var(--border-default)]/60 last:border-0">
         <div className="flex items-center gap-3 min-w-0">
           <span
             className={clsx(

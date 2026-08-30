@@ -30,7 +30,7 @@ export function EvidenceProvenance({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-testid="evidence-provenance">
       {/* Lineage header */}
       <div className="flex items-center gap-2 mono text-[11px] tracking-[0.08em]" style={{ color: "var(--text-faint)" }}>
         <span>RUN</span><span>→</span><span>STEP</span><span>→</span><span>ARTIFACT</span><span>→</span><span>HASH</span><span>→</span><span>VERIFICATION</span><span>→</span><span>FINDING</span><span>→</span><span>REPORT</span>

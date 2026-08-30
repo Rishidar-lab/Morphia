@@ -216,7 +216,7 @@ export function ExecutionGraph({
   const selectedNode = nodes.find((n) => n.id === selected) ?? null;
 
   return (
-    <div>
+    <div data-testid="execution-graph">
       {/* Desktop: horizontal graph, Mobile: vertical timeline */}
       <div className="hidden lg:block overflow-x-auto pb-2">
         <div className="flex items-stretch gap-0 min-w-[960px]">

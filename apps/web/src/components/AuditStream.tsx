@@ -56,7 +56,7 @@ export function AuditStream({
   }
 
   return (
-    <div className="rounded-[6px] overflow-hidden" style={{ background: "var(--bg-panel)", border: "1px solid var(--border-default)" }}>
+    <div data-testid="audit-stream" className="rounded-[6px] overflow-hidden" style={{ background: "var(--bg-panel)", border: "1px solid var(--border-default)" }}>
       <div className="px-4 py-3 flex items-center justify-between gap-3 flex-wrap" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
         <div className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full animate-pulse" style={{ background: "var(--pass)" }} />

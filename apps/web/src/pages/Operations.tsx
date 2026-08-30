@@ -99,7 +99,7 @@ export default function Operations() {
   const hasData = projects.length > 0 || engagements.length > 0 || runs.length > 0;
 
   return (
-    <div className="px-4 sm:px-6 py-5 space-y-5">
+    <div className="px-4 sm:px-6 py-5 space-y-5" data-testid="operations-command-center">
       {/* ── Header ─────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
@@ -185,7 +185,7 @@ export default function Operations() {
               {/* Blocked showcase */}
               <div className="rounded-[6px] overflow-hidden" style={{ background: "var(--bg-panel)", border: "1px solid var(--border-default)" }}>
                 <div className="px-3 py-2.5" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
-                  <p className="mono text-[11px] tracking-[0.08em] font-medium" style={{ color: "var(--text-faint)" }}>BLOCKED EXECUTION — DEMO</p>
+                  <p data-testid="blocked-execution" className="mono text-[11px] tracking-[0.08em] font-medium" style={{ color: "var(--text-faint)" }}>BLOCKED EXECUTION — DEMO</p>
                 </div>
                 <div className="p-3 space-y-2">
                   <div className="rounded-[6px] p-2.5 mono text-xs" style={{ background: "var(--deny-bg)", border: "1px solid var(--deny-border)", color: "var(--deny)" }}>

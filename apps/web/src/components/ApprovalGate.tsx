@@ -58,7 +58,7 @@ export function ApprovalGate({
   if (!isApprovalState) return null;
 
   return (
-    <div className="rounded-[8px] overflow-hidden" style={{ border: `1px solid var(--attention-border)`, background: "var(--attention-bg)" }}>
+    <div data-testid="approval-gate" className="rounded-[8px] overflow-hidden" style={{ border: `1px solid var(--attention-border)`, background: "var(--attention-bg)" }}>
       {/* Header */}
       <div className="px-5 py-4 flex items-start justify-between gap-4" style={{ borderBottom: "1px solid var(--attention-border)" }}>
         <div className="flex gap-3">
