@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { Outlet, NavLink, useNavigate } from "react-router-dom";
-import { clsx } from "clsx";
+import { Outlet, NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { setUnauthorizedHandler } from "@/lib/api";
 import { fetchCurrentUser, logout } from "@/lib/auth";
@@ -8,24 +7,50 @@ import { getCurrentUser } from "@/lib/session";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import type { User } from "@/lib/types";
 
-const navItems = [
-  { to: "/dashboard", label: "Dashboard", icon: "◉" },
-  { to: "/projects", label: "Projects", icon: "◫" },
-  { to: "/runs", label: "Runs", icon: "▶" },
-  { to: "/agents", label: "Agents", icon: "◈" },
-  { to: "/workflows", label: "Workflows", icon: "⬡" },
-  { to: "/approvals", label: "Approvals", icon: "✓" },
-  { to: "/evidence", label: "Evidence", icon: "◧" },
-  { to: "/findings", label: "Findings", icon: "⚑" },
-  { to: "/reports", label: "Reports", icon: "◱" },
-  { to: "/audit", label: "Audit Log", icon: "◎" },
-  { to: "/settings", label: "Settings", icon: "⚙" },
+type NavSection = {
+  label: string;
+  items: { to: string; label: string; icon: string; mono?: boolean }[];
+};
+
+const navSections: NavSection[] = [
+  {
+    label: "Operations",
+    items: [
+      { to: "/operations", label: "Operations", icon: "◉" },
+      { to: "/dashboard", label: "Overview", icon: "⬡" },
+    ],
+  },
+  {
+    label: "Work",
+    items: [
+      { to: "/projects", label: "Engagements", icon: "◫" },
+      { to: "/runs", label: "Runs", icon: "▶" },
+      { to: "/approvals", label: "Approvals", icon: "✓" },
+    ],
+  },
+  {
+    label: "Evidence & Analysis",
+    items: [
+      { to: "/evidence", label: "Evidence", icon: "◧" },
+      { to: "/findings", label: "Findings", icon: "⚑" },
+      { to: "/reports", label: "Reports", icon: "◱" },
+    ],
+  },
+  {
+    label: "Governance",
+    items: [
+      { to: "/audit", label: "Audit Log", icon: "◎" },
+      { to: "/agents", label: "Agents", icon: "◈" },
+      { to: "/workflows", label: "Workflows", icon: "⬢" },
+    ],
+  },
 ];
 
 type AuthState = "checking" | "authed" | "anon";
 
 export function Layout() {
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const [authState, setAuthState] = useState<AuthState>(
     getCurrentUser() ? "authed" : "checking",
@@ -33,7 +58,6 @@ export function Layout() {
   const [user, setUser] = useState<User | null>(getCurrentUser());
 
   useEffect(() => {
-    // Any 401 from anywhere in the app drops us back to sign-in.
     setUnauthorizedHandler(() => {
       setAuthState("anon");
       queryClient.clear();
@@ -42,11 +66,6 @@ export function Layout() {
   }, [navigate, queryClient]);
 
   useEffect(() => {
-    // If we just signed in (or navigated within an authenticated session) the
-    // session store already holds the user — trust it. A dead session still
-    // gets caught: the first real API call returns 401 and the global
-    // unauthorized handler above redirects. Only when we have *no* user
-    // (a cold page load) do we resolve it from the cookie here.
     const known = getCurrentUser();
     if (known) {
       setUser(known);
@@ -78,61 +97,139 @@ export function Layout() {
   if (authState === "checking") return <LoadingScreen />;
   if (authState === "anon") return null;
 
+  const onOperations = location.pathname.startsWith("/operations");
+
   return (
-    <div className="flex h-screen overflow-hidden">
-      <aside className="w-56 flex-shrink-0 border-r border-gray-800 bg-[#0d1117] flex flex-col">
-        <div className="p-4 border-b border-gray-800">
-          <h1 className="text-lg font-bold tracking-wider text-blue-400">MORPHIA</h1>
-          <p className="text-[10px] text-gray-500 tracking-widest mt-0.5">
-            AUTHORIZED SECURITY RESEARCH
+    <div className="flex h-screen overflow-hidden" style={{ background: "var(--bg-0)" }}>
+      {/* ── Left rail ─────────────────────────────────────────────── */}
+      <aside
+        className="w-[224px] flex-shrink-0 flex flex-col select-none"
+        style={{
+          background: "var(--bg-1)",
+          borderRight: "1px solid var(--border-default)",
+        }}
+      >
+        {/* Wordmark */}
+        <div
+          className="px-4 pt-5 pb-4"
+          style={{ borderBottom: "1px solid var(--border-subtle)" }}
+        >
+          <div className="flex items-baseline gap-2">
+            <span className="text-[16px] font-bold tracking-[0.18em] text-[#e6ebf5]">MORPHIA</span>
+            <span
+              className="text-[9px] font-medium tracking-[0.12em] px-1.5 py-0.5 rounded"
+              style={{
+                background: "rgba(16,185,129,0.12)",
+                border: "1px solid rgba(16,185,129,0.25)",
+                color: "#6ee7b7",
+              }}
+            >
+              v0.2 α
+            </span>
+          </div>
+          <p className="text-[10px] tracking-[0.14em] mt-1.5" style={{ color: "var(--text-faint)" }}>
+            HUMAN-GOVERNED ORCHESTRATION
+          </p>
+          <p className="mono text-[10px] mt-2 leading-none" style={{ color: "var(--text-faint)" }}>
+            scope → plan → approval → execution → evidence
           </p>
         </div>
 
-        <nav className="flex-1 overflow-y-auto py-2">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) =>
-                clsx(
-                  "flex items-center gap-3 px-4 py-2 text-sm transition-colors",
-                  isActive
-                    ? "bg-blue-500/10 text-blue-400 border-r-2 border-blue-400"
-                    : "text-gray-400 hover:text-gray-200 hover:bg-gray-800/50",
-                )
-              }
-            >
-              <span className="text-xs w-4 text-center">{item.icon}</span>
-              {item.label}
-            </NavLink>
+        <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-5">
+          {navSections.map((section) => (
+            <div key={section.label}>
+              <p
+                className="text-[10px] tracking-[0.12em] font-medium px-2 mb-1.5"
+                style={{ color: "var(--text-faint)" }}
+              >
+                {section.label.toUpperCase()}
+              </p>
+              <div className="space-y-0.5">
+                {section.items.map((item) => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    className={({ isActive }) =>
+                      `flex items-center gap-2.5 px-2.5 py-1.5 text-[13px] rounded-[4px] transition-colors ${
+                        isActive ? "font-medium" : ""
+                      }`
+                    }
+                    style={({ isActive }) =>
+                      isActive
+                        ? {
+                            background: "var(--bg-panel)",
+                            border: "1px solid var(--border-default)",
+                            color: "var(--text-primary)",
+                          }
+                        : {
+                            color: "var(--text-muted)",
+                            border: "1px solid transparent",
+                          }
+                    }
+                  >
+                    <span className="text-[11px] w-3.5 text-center opacity-70">{item.icon}</span>
+                    <span className={item.mono ? "mono text-[12px]" : ""}>{item.label}</span>
+                  </NavLink>
+                ))}
+              </div>
+            </div>
           ))}
         </nav>
 
-        <div className="p-3 border-t border-gray-800 space-y-2">
-          {user && (
-            <div className="px-2">
-              <p className="text-xs text-gray-300 truncate" title={user.email}>
-                {user.display_name}
-              </p>
-              <p className="text-[10px] text-gray-600 truncate">
-                {user.email} · {user.role}
-              </p>
-            </div>
-          )}
+        {/* Operation status strip */}
+        <div
+          className="mx-2 mb-2 rounded-[6px] px-3 py-2.5"
+          style={{
+            background: "var(--bg-panel)",
+            border: "1px solid var(--border-default)",
+          }}
+        >
+          <p className="text-[10px] tracking-[0.1em] font-medium" style={{ color: "var(--text-faint)" }}>
+            OPERATION STATUS
+          </p>
+          <p className="text-xs mt-1 font-medium" style={{ color: onOperations ? "var(--active)" : "var(--text-secondary)" }}>
+            {onOperations ? "●  Command center active" : "○  Standby"}
+          </p>
+          <p className="mono text-[10px] mt-1" style={{ color: "var(--text-faint)" }}>
+            Nothing executes without approval
+          </p>
+        </div>
+
+        <div className="px-3 py-3 flex items-center gap-2" style={{ borderTop: "1px solid var(--border-subtle)" }}>
+          <div className="h-7 w-7 rounded-[6px] flex items-center justify-center text-[11px] font-medium flex-shrink-0" style={{ background: "var(--bg-panel)", border: "1px solid var(--border-default)", color: "var(--text-secondary)" }}>
+            {user?.display_name?.[0]?.toUpperCase() ?? "?"}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-medium truncate leading-none" style={{ color: "var(--text-primary)" }}>{user?.display_name}</p>
+            <p className="mono text-[10px] truncate" style={{ color: "var(--text-faint)" }}>{user?.role}</p>
+          </div>
           <button
             onClick={handleLogout}
-            className="w-full text-left text-xs text-gray-500 hover:text-gray-300 px-2 py-1.5 rounded transition-colors"
+            className="text-[11px] px-2 py-1 rounded-[4px] flex-shrink-0"
+            style={{ color: "var(--text-muted)", border: "1px solid var(--border-subtle)" }}
           >
-            Sign out
+            Exit
           </button>
         </div>
       </aside>
 
-      <main className="flex-1 overflow-y-auto bg-[#0a0e17]">
-        <div className="max-w-7xl mx-auto px-6 py-6">
-          <Outlet />
+      {/* ── Main ──────────────────────────────────────────────────── */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* Top rule */}
+        <div className="h-7 flex-shrink-0 flex items-center justify-between px-4 text-[11px]" style={{ background: "var(--bg-1)", borderBottom: "1px solid var(--border-subtle)", color: "var(--text-faint)" }}>
+          <span className="mono tracking-wide">
+            AUTHORIZATION BOUNDARY ENFORCED · DUAL VALIDATION · AUDIT TRAIL ACTIVE
+          </span>
+          <span className="hidden sm:inline mono">
+            {new Date().toISOString().slice(0, 10)} · {user?.email}
+          </span>
         </div>
-      </main>
+        <main className="flex-1 overflow-y-auto">
+          <div className="max-w-[1440px] mx-auto">
+            <Outlet />
+          </div>
+        </main>
+      </div>
     </div>
   );
 }
