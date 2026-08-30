@@ -43,8 +43,11 @@ async function createProject(page: Page, name: string): Promise<void> {
     .click();
   await page.fill("#proj-name", name);
   await page.fill("#proj-desc", "Created by the Playwright MVP journey.");
-  await page.getByRole("button", { name: "Create Project" }).click();
-  // Scoped to the projects list region to avoid matching header/nav
+  const [resp] = await Promise.all([
+    page.waitForResponse((r) => r.url().includes("/projects") && r.request().method() === "POST"),
+    page.getByRole("button", { name: "Create Project" }).click(),
+  ]);
+  if (!resp.ok()) throw new Error(`Create project failed: ${resp.status()} ${await resp.text()}`);
   await expect(page.getByRole("link", { name, exact: true })).toBeVisible({ timeout: 15_000 });
 }
 
@@ -98,19 +101,20 @@ async function driveRunToApproval(page: Page, title: string): Promise<void> {
   await page.getByRole("link", { name: title, exact: true }).click();
   await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
   await expect(page.getByTestId("execution-graph")).toBeVisible();
-  // Start planning -> PLANNING
   const startBtn = page.getByRole("button", { name: "Start planning" });
-  await expect(startBtn).toBeVisible();
-  await Promise.all([
-    page.waitForResponse((r) => r.url().includes("/runs/") && r.url().includes("/transition") && r.request().method() === "POST"),
+  await expect(startBtn).toBeVisible({ timeout: 10_000 });
+  const [r1] = await Promise.all([
+    page.waitForResponse((r) => r.url().includes("/runs/") && r.url().includes("/transition")),
     startBtn.click(),
   ]);
+  if (!r1.ok()) throw new Error(`Start planning failed: ${r1.status()} ${await r1.text()}`);
   await expect(page.getByRole("button", { name: "Submit plan for approval" })).toBeVisible({ timeout: 20_000 });
   const submitBtn = page.getByRole("button", { name: "Submit plan for approval" });
-  await Promise.all([
-    page.waitForResponse((r) => r.url().includes("/runs/") && r.url().includes("/transition") && r.request().method() === "POST"),
+  const [r2] = await Promise.all([
+    page.waitForResponse((r) => r.url().includes("/runs/") && r.url().includes("/transition")),
     submitBtn.click(),
   ]);
+  if (!r2.ok()) throw new Error(`Submit plan failed: ${r2.status()} ${await r2.text()}`);
   await expect(page.getByTestId("approval-gate")).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText("EXECUTION PAUSED — HUMAN AUTHORIZATION REQUIRED")).toBeVisible();
 }
