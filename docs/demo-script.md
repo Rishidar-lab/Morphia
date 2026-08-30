@@ -3,6 +3,11 @@
 A ~3-minute walkthrough of the MVP journey. Everything runs locally against
 synthetic data; nothing touches a real target.
 
+For a shorter, silent portfolio cut, CI records the seeded live application
+with Playwright and uploads `morphia-demo-video` as an MP4 artifact. The
+recording comes from `tests/e2e/tests/demo-video.spec.ts`; it is produced only
+after the same job has built, migrated, seeded, and exercised the live stack.
+
 ## Before you record
 
 ```bash
