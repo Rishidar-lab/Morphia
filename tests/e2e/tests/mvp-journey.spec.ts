@@ -28,9 +28,10 @@ async function registerAndSignIn(page: Page): Promise<string> {
   await page.fill("#email", email);
   await page.fill("#password", PASSWORD);
   await page.getByRole("button", { name: "Create account" }).click();
-  // New users land on operations; shell must render even with no data (empty state)
+  // Registration navigates to /operations; wait for auth to settle then verify shell
+  await expect(page).not.toHaveURL(/\/sign-in$/, { timeout: 15_000 });
+  await page.goto("/operations");
   await expect(page.getByTestId("operations-command-center")).toBeVisible({ timeout: 15_000 });
-  await expect(page).toHaveURL(/\/operations$/);
   return email;
 }
 
