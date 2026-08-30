@@ -152,6 +152,30 @@ jobs:
       - name: Run the MVP-journey suite
         working-directory: tests/e2e
         run: npx playwright test mvp-journey
+      - name: Record the portfolio demo
+        working-directory: tests/e2e
+        run: |
+          set -a
+          source ../../.env
+          set +a
+          npx playwright test demo-video
+      - name: Convert the demo to MP4
+        run: |
+          video="$(find tests/e2e/test-results -name video.webm -print -quit)"
+          test -n "$video"
+          if ! command -v ffmpeg >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y ffmpeg
+          fi
+          ffmpeg -y -i "$video" -c:v libx264 -preset medium -crf 20 \
+            -pix_fmt yuv420p -movflags +faststart morphia-demo.mp4
+      - name: Upload portfolio demo
+        uses: actions/upload-artifact@v4
+        with:
+          name: morphia-demo-video
+          path: morphia-demo.mp4
+          if-no-files-found: error
+          retention-days: 30
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4
