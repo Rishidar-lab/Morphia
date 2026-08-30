@@ -567,9 +567,7 @@ def _seed_awaiting_run(
     return run
 
 
-def _seed_failed_run(
-    db: SyncSession, project: Project, engagement: Engagement, owner: User
-) -> Run:
+def _seed_failed_run(db: SyncSession, project: Project, engagement: Engagement, owner: User) -> Run:
     existing = db.execute(
         select(Run).where(Run.project_id == project.id, Run.title == RUN_TITLE_FAILED)
     ).scalar_one_or_none()
@@ -608,7 +606,10 @@ def _seed_failed_run(
                 "AWAITING_PLAN_APPROVAL",
                 "QUEUED",
                 owner.id,
-                {"decision": "approved", "justification": "Approved for demo denial path — will be blocked by worker revalidation."},
+                {
+                    "decision": "approved",
+                    "justification": "Approved for demo denial path — will be blocked by worker revalidation.",
+                },
             ),
             ("run.claimed", "QUEUED", "FAILED", "worker:seed", None),
             (
@@ -616,7 +617,10 @@ def _seed_failed_run(
                 None,
                 None,
                 "worker:seed",
-                {"reason": "target 'production.example.com' is explicitly excluded", "target": "production.example.com"},
+                {
+                    "reason": "target 'production.example.com' is explicitly excluded",
+                    "target": "production.example.com",
+                },
             ),
         ]
     ):
