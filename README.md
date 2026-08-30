@@ -2,18 +2,17 @@
 
 [![CI](https://github.com/Rishidar-lab/Morphia/actions/workflows/ci.yml/badge.svg)](https://github.com/Rishidar-lab/Morphia/actions/workflows/ci.yml)
 
-**Human-in-the-loop orchestration for authorized security research.**
+**MORPHIA is a human-governed orchestration layer for authorized security research.**
 
-Scoped engagements, auditable execution, evidence integrity, and
-disclosure-ready reports — with a human approval gate before anything touches a
-target.
+It coordinates:
 
-![MORPHIA run detail](docs/assets/screenshots/run-detail.png)
+**scope → plans → approvals → controlled execution → evidence → findings → reports**
 
-> **Status: MVP / alpha.** The end-to-end journey works against a live stack and
-> is covered by service-backed integration tests and a browser E2E suite (see
-> `docs/mvp-verification.md`). It is not production-hardened — see
-> [Limitations](#limitations).
+with an append-only audit trail spanning the whole chain. Nothing executes merely because an agent requested it — authorization, dual scope validation, human approval, and evidence provenance are enforced server-side and made visible in the interface.
+
+![MORPHIA Operations Canvas](docs/assets/screenshots/operations.png)
+
+> **Status: v0.2.0-alpha — Operations Intelligence Interface.** The end-to-end journey works against a live stack and is covered by service-backed integration tests and a browser E2E suite (see `docs/mvp-verification.md`). It is not production-hardened — see [Limitations](#limitations). v0.1 history intact; redesign documented in `docs/releases/v0.2.0-alpha.md`.
 
 ---
 
@@ -151,14 +150,19 @@ For recording a walkthrough, see `docs/demo-script.md`,
 `docs/demo-shot-list.md`, `docs/demo-narration.md`, and
 `scripts/prepare-demo.sh`.
 
-## Screenshots
+## Screenshots — Operations Intelligence Interface (v0.2)
 
 | | |
 |---|---|
-| ![Dashboard](docs/assets/screenshots/dashboard.png) | ![Scope](docs/assets/screenshots/scope.png) |
-| ![Run detail](docs/assets/screenshots/run-detail.png) | ![Audit log](docs/assets/screenshots/audit-log.png) |
+| ![Operations Command Center](docs/assets/screenshots/operations.png) | ![Human Approval Gate](docs/assets/screenshots/approval-gate.png) |
+| ![Execution Graph](docs/assets/screenshots/execution-graph.png) | ![Authorization Boundary](docs/assets/screenshots/authorization-boundary.png) |
+| ![Blocked Execution](docs/assets/screenshots/blocked-execution.png) | ![Evidence Provenance](docs/assets/screenshots/evidence-provenance.png) |
+| ![Finding Workspace](docs/assets/screenshots/finding-workspace.png) | ![Report](docs/assets/screenshots/reports.png) |
+| ![Governance / Audit](docs/assets/screenshots/governance.png) | ![Scope](docs/assets/screenshots/scope.png) |
 
-More in [`docs/assets/screenshots/`](docs/assets/screenshots/).
+More in [`docs/assets/screenshots/`](docs/assets/screenshots/). Social preview: `docs/assets/screenshots/social-preview.png`.
+
+The Operations Canvas makes the thesis visible within ~10 seconds: **scope before execution, evidence before conclusions, humans before consequential actions.**
 
 ## Security boundaries
 

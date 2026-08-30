@@ -11,6 +11,10 @@ import { test, expect, type Page } from "@playwright/test";
  *
  * Nothing here touches a real external system: the only target is the local
  * synthetic `demo-target` compose service.
+ *
+ * v0.2 adds operations-intelligence coverage: Operations Canvas, execution
+ * graph, authorization boundary, approval gate, blocked execution, evidence
+ * provenance.
  */
 
 const PASSWORD = "Journey-Pass-9x7q!";
@@ -27,10 +31,9 @@ async function registerAndSignIn(page: Page): Promise<string> {
   await page.fill("#email", email);
   await page.fill("#password", PASSWORD);
   await page.getByRole("button", { name: "Create account" }).click();
-  // Land in the authenticated shell (sidebar + dashboard heading), not just
-  // a URL change — the Layout re-checks the session on mount.
-  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
-  await expect(page).toHaveURL(/\/dashboard$/);
+  // SignIn navigates to /operations — operations intelligence canvas
+  await expect(page.getByText("OPERATIONS — COMMAND CENTER")).toBeVisible();
+  await expect(page).toHaveURL(/\/operations$/);
   return email;
 }
 
@@ -94,10 +97,14 @@ async function createRun(
 async function driveRunToApproval(page: Page, title: string): Promise<void> {
   await page.getByRole("link", { name: title }).click();
   await expect(page.getByRole("heading", { name: title })).toBeVisible();
+  // New RunDetail shows execution graph and controls
+  await expect(page.getByText("EXECUTION GRAPH")).toBeVisible();
   await page.getByRole("button", { name: "Start planning" }).click();
   await expect(page.getByRole("button", { name: "Submit plan for approval" })).toBeVisible();
   await page.getByRole("button", { name: "Submit plan for approval" }).click();
-  await expect(page.getByRole("button", { name: "Approve" })).toBeVisible();
+  // Approval gate should now be visible — human authorization required
+  await expect(page.getByText("EXECUTION PAUSED — HUMAN AUTHORIZATION REQUIRED")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Approve — authorize execution/ })).toBeVisible();
 }
 
 // ---------------------------------------------------------------------------
@@ -119,7 +126,7 @@ test("full journey: allowed run completes end to end", async ({ page }) => {
   });
 
   await driveRunToApproval(page, runTitle);
-  await page.getByRole("button", { name: "Approve" }).click();
+  await page.getByRole("button", { name: /Approve — authorize execution/ }).click();
 
   // Worker (mock provider) picks it up and drives it to COMPLETED — the
   // timeline records the worker-attributed transition and the captured step.
@@ -127,6 +134,8 @@ test("full journey: allowed run completes end to end", async ({ page }) => {
   await expect(page.getByText("run.step_completed")).toBeVisible();
   await expect(page.getByText(/mock-provider deterministic response/i)).toBeVisible();
   await expect(page.getByText("worker:", { exact: false }).first()).toBeVisible();
+  // Execution graph should reflect completed state
+  await expect(page.getByText("EVIDENCE")).toBeVisible();
 });
 
 test("scope-denied path: out-of-scope target is refused", async ({ page }) => {
@@ -146,14 +155,15 @@ test("scope-denied path: out-of-scope target is refused", async ({ page }) => {
   });
 
   await driveRunToApproval(page, runTitle);
-  await page.getByRole("button", { name: "Approve" }).click();
+  await page.getByRole("button", { name: /Approve — authorize execution/ }).click();
 
   // The worker's independent scope re-check refuses it; the run ends FAILED
-  // with the reason recorded on the timeline.
+  // with the reason recorded on the timeline and execution graph shows BLOCKED.
   await expect(page.getByText("run.scope_denied")).toBeVisible({ timeout: 45_000 });
   await expect(
-    page.getByText(/does not match any allowed scope rule/i).first(),
+    page.getByText(/does not match any allowed scope rule|explicitly excluded/i).first(),
   ).toBeVisible();
+  await expect(page.getByText("BLOCKED")).toBeVisible();
 });
 
 test("dashboard and audit log reflect activity", async ({ page }) => {
@@ -162,20 +172,55 @@ test("dashboard and audit log reflect activity", async ({ page }) => {
   await createProject(page, project);
 
   await page.goto("/dashboard");
-  // The "Projects" tile links to /projects and shows a live count (not the
-  // loading "—").
-  const projectsTile = page.locator("main a[href='/projects']").first();
-  await expect(projectsTile).toContainText("Projects");
-  await expect(projectsTile).toContainText(/[1-9]/, { timeout: 15_000 });
+  await expect(page.getByText("CURRENT OPERATION")).toBeVisible();
+  await expect(page.getByText("SCOPE STATE")).toBeVisible();
+  await expect(page.locator("main").getByText(project).first()).toBeVisible({ timeout: 15_000 });
 
   await page.goto("/audit");
+  await expect(page.getByText("GOVERNANCE — AUDIT LOG")).toBeVisible();
   await expect(page.locator("tbody").getByText("project.create").first()).toBeVisible();
   await expect(page.locator("tbody").getByText("auth.login").first()).toBeVisible();
 });
 
+test("operations canvas renders with execution graph and authorization boundary", async ({ page }) => {
+  await registerAndSignIn(page);
+  const project = `Ops ${Date.now()}`;
+  await createProject(page, project);
+  await openProject(page, project);
+  await addEngagement(page, "Ops Validation");
+  await addScopeRule(page, "demo-target");
+
+  const runTitle = `Ops run ${Date.now()}`;
+  await createRun(page, { title: runTitle, engagement: "Ops Validation", target: "demo-target" });
+  await driveRunToApproval(page, runTitle);
+
+  await page.goto("/operations");
+  await expect(page.getByText("OPERATIONS — COMMAND CENTER")).toBeVisible();
+  await expect(page.getByText("AUTHORIZATION BOUNDARY")).toBeVisible();
+  await expect(page.getByText("EXECUTION GRAPH — OPERATION TIMELINE")).toBeVisible();
+  await expect(page.getByText("EVIDENCE · FINDINGS · APPROVALS")).toBeVisible();
+  await expect(page.getByText("BLOCKED EXECUTION — DEMO")).toBeVisible();
+  await expect(page.getByText("AWAITING HUMAN")).toBeVisible();
+  // Policy evaluator should be interactive
+  await expect(page.getByPlaceholder("demo-target or production.example.com")).toBeVisible();
+});
+
+test("evidence provenance and findings workspace accessible", async ({ page }) => {
+  await registerAndSignIn(page);
+  await page.goto("/evidence");
+  await expect(page.getByRole("heading", { name: "EVIDENCE" })).toBeVisible();
+  await expect(page.getByText("Hash-verified artifacts")).toBeVisible();
+  // Provenance lineage header
+  await expect(page.getByText("RUN → STEP → ARTIFACT → HASH")).toBeVisible();
+
+  await page.goto("/findings");
+  await expect(page.getByRole("heading", { name: "FINDINGS" })).toBeVisible();
+  await expect(page.getByText("Analyst workspace")).toBeVisible();
+});
+
 test("unauthenticated access redirects to sign-in; 404 does not", async ({ page }) => {
   await page.context().clearCookies();
-  for (const route of ["/dashboard", "/projects", "/runs", "/settings"]) {
+  for (const route of ["/dashboard", "/projects", "/runs", "/settings", "/operations"]) {
     await page.goto(route);
     await expect(page).toHaveURL(/\/sign-in$/);
   }

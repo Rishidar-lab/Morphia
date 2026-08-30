@@ -101,9 +101,9 @@ function SettingsSection<T>({
   });
 
   return (
-    <div className="bg-gray-900/50 border border-gray-800 rounded-lg p-5">
-      <h2 className="text-sm font-semibold text-gray-100">{title}</h2>
-      <p className="text-xs text-gray-500 mt-1 mb-4">{description}</p>
+    <div className="bg-[var(--bg-panel)] border border-[var(--border-default)] rounded-[6px] p-5">
+      <h2 className="text-sm font-semibold text-[var(--text-primary)]">{title}</h2>
+      <p className="text-xs text-[var(--text-faint)] mt-1 mb-4">{description}</p>
 
       <div className="space-y-3">{children(value, setValue)}</div>
 
@@ -119,7 +119,7 @@ function SettingsSection<T>({
         <button
           onClick={() => mutation.mutate(value)}
           disabled={mutation.isPending}
-          className="px-3.5 py-1.5 text-sm font-medium rounded-md bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 disabled:cursor-not-allowed text-white transition-colors"
+          className="px-3.5 py-1.5 text-sm font-medium rounded-md bg-[var(--text-primary)] hover:opacity-90 disabled:bg-blue-800 disabled:cursor-not-allowed text-white transition-colors"
         >
           {mutation.isPending ? "Saving..." : "Save Changes"}
         </button>
@@ -147,7 +147,7 @@ function Field({
 
   return (
     <div className="grid grid-cols-3 items-center gap-3">
-      <label htmlFor={id} className="text-xs text-gray-400 col-span-1">
+      <label htmlFor={id} className="text-xs text-[var(--text-muted)] col-span-1">
         {label}
       </label>
       <div className="col-span-2">{control}</div>
@@ -156,14 +156,14 @@ function Field({
 }
 
 const inputClass =
-  "w-full bg-gray-950 border border-gray-700 rounded-md px-3 py-1.5 text-sm text-gray-100 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500";
+  "w-full bg-[var(--bg-inset)] border border-[var(--border-default)] rounded-md px-3 py-1.5 text-sm text-[var(--text-primary)] focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500";
 
 export default function Settings() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-100">Settings</h1>
-        <p className="text-sm text-gray-500 mt-1">Organization-wide configuration</p>
+        <h1 className="text-2xl font-bold text-[var(--text-primary)]">Settings</h1>
+        <p className="text-sm text-[var(--text-faint)] mt-1">Organization-wide configuration</p>
       </div>
 
       <div className="space-y-6 max-w-3xl">
@@ -230,14 +230,14 @@ export default function Settings() {
                 />
               </Field>
               <Field label="Require MFA">
-                <label className="flex items-center gap-2 text-sm text-gray-300">
+                <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
                   <input
                     type="checkbox"
                     checked={value.require_mfa}
                     onChange={(e) =>
                       setValue({ ...value, require_mfa: e.target.checked })
                     }
-                    className="rounded border-gray-700 bg-gray-950 text-blue-500 focus:ring-blue-500"
+                    className="rounded border-[var(--border-default)] bg-[var(--bg-inset)] text-blue-500 focus:ring-blue-500"
                   />
                   Enabled
                 </label>
