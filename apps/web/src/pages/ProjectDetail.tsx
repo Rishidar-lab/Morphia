@@ -8,6 +8,7 @@ import { CANCELLABLE_STATES, APPROVAL_STATES, TERMINAL_STATES } from "@/lib/type
 import { LoadingSkeleton, EmptyState, ErrorState } from "@/components/ListStates";
 import { StateBadge } from "@/components/StateBadge";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { AuthorizationBoundary } from "@/components/AuthorizationBoundary";
 
 type Tab = "overview" | "engagements" | "scope" | "runs";
 
@@ -54,10 +55,10 @@ function OverviewTab({ projectId }: { projectId: string }) {
       {stats.map((stat) => (
         <div
           key={stat.label}
-          className="bg-gray-900/50 border border-gray-800 rounded-lg p-4"
+          className="bg-[var(--bg-panel)] border border-[var(--border-default)] rounded-[6px] p-4"
         >
-          <p className="text-xs text-gray-500 uppercase tracking-wider">{stat.label}</p>
-          <p className="text-2xl font-bold text-gray-100 mt-1">
+          <p className="text-xs text-[var(--text-faint)] uppercase tracking-wider">{stat.label}</p>
+          <p className="text-2xl font-bold text-[var(--text-primary)] mt-1">
             {stat.loading ? "—" : stat.value}
           </p>
         </div>
@@ -104,9 +105,9 @@ function NewEngagementForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="bg-gray-900/50 border border-gray-800 rounded-lg p-5 mb-4 space-y-4"
+      className="bg-[var(--bg-panel)] border border-[var(--border-default)] rounded-[6px] p-5 mb-4 space-y-4"
     >
-      <h3 className="text-sm font-medium text-gray-300">New Engagement</h3>
+      <h3 className="text-sm font-medium text-[var(--text-secondary)]">New Engagement</h3>
 
       {mutation.isError && (
         <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm px-3 py-2 rounded-md">
@@ -117,34 +118,34 @@ function NewEngagementForm({
       )}
 
       <div>
-        <label className="block text-xs text-gray-400 mb-1.5">Program Name</label>
+        <label className="block text-xs text-[var(--text-muted)] mb-1.5">Program Name</label>
         <input
           required
           value={programName}
           onChange={(e) => setProgramName(e.target.value)}
-          className="w-full bg-gray-950 border border-gray-700 rounded-md px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+          className="w-full bg-[var(--bg-inset)] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-[var(--text-primary)] placeholder-gray-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
           placeholder="Acme Corp Bug Bounty"
         />
       </div>
 
       <div>
-        <label className="block text-xs text-gray-400 mb-1.5">Authorization Basis</label>
+        <label className="block text-xs text-[var(--text-muted)] mb-1.5">Authorization Basis</label>
         <textarea
           value={authorizationBasis}
           onChange={(e) => setAuthorizationBasis(e.target.value)}
           rows={2}
-          className="w-full bg-gray-950 border border-gray-700 rounded-md px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+          className="w-full bg-[var(--bg-inset)] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-[var(--text-primary)] placeholder-gray-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
           placeholder="Signed rules-of-engagement doc, bounty program terms, etc."
         />
       </div>
 
       <div>
-        <label className="block text-xs text-gray-400 mb-1.5">Notes</label>
+        <label className="block text-xs text-[var(--text-muted)] mb-1.5">Notes</label>
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           rows={2}
-          className="w-full bg-gray-950 border border-gray-700 rounded-md px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+          className="w-full bg-[var(--bg-inset)] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-[var(--text-primary)] placeholder-gray-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
         />
       </div>
 
@@ -152,14 +153,14 @@ function NewEngagementForm({
         <button
           type="button"
           onClick={onDone}
-          className="px-3.5 py-1.5 text-sm rounded-md border border-gray-700 text-gray-300 hover:bg-gray-800 transition-colors"
+          className="px-3.5 py-1.5 text-sm rounded-md border border-[var(--border-default)] text-[var(--text-secondary)] hover:bg-gray-800 transition-colors"
         >
           Cancel
         </button>
         <button
           type="submit"
           disabled={mutation.isPending || !programName.trim()}
-          className="px-3.5 py-1.5 text-sm font-medium rounded-md bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 disabled:cursor-not-allowed text-white transition-colors"
+          className="px-3.5 py-1.5 text-sm font-medium rounded-md bg-[var(--text-primary)] hover:opacity-90 disabled:bg-blue-800 disabled:cursor-not-allowed text-white transition-colors"
         >
           {mutation.isPending ? "Creating..." : "Create Engagement"}
         </button>
@@ -179,11 +180,11 @@ function EngagementsTab({ projectId }: { projectId: string }) {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-sm font-medium text-gray-300">Engagements</h2>
+        <h2 className="text-sm font-medium text-[var(--text-secondary)]">Engagements</h2>
         {!showForm && (
           <button
             onClick={() => setShowForm(true)}
-            className="px-3 py-1.5 text-xs font-medium rounded-md bg-blue-600 hover:bg-blue-500 text-white transition-colors"
+            className="px-3 py-1.5 text-xs font-medium rounded-md bg-[var(--text-primary)] hover:opacity-90 text-white transition-colors"
           >
             New Engagement
           </button>
@@ -215,14 +216,14 @@ function EngagementsTab({ projectId }: { projectId: string }) {
           {data.map((eng) => (
             <div
               key={eng.id}
-              className="bg-gray-900/50 border border-gray-800 rounded-lg p-4 flex items-start justify-between gap-4"
+              className="bg-[var(--bg-panel)] border border-[var(--border-default)] rounded-[6px] p-4 flex items-start justify-between gap-4"
             >
               <div>
-                <p className="text-sm font-medium text-gray-100">{eng.program_name}</p>
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-sm font-medium text-[var(--text-primary)]">{eng.program_name}</p>
+                <p className="text-xs text-[var(--text-faint)] mt-1">
                   {eng.authorization_basis || "No authorization basis recorded."}
                 </p>
-                {eng.notes && <p className="text-xs text-gray-600 mt-1">{eng.notes}</p>}
+                {eng.notes && <p className="text-xs text-[var(--text-faint)] mt-1">{eng.notes}</p>}
               </div>
               <div className="flex flex-col items-end gap-1 flex-shrink-0">
                 <span
@@ -230,12 +231,12 @@ function EngagementsTab({ projectId }: { projectId: string }) {
                     "text-xs px-2 py-0.5 rounded-full border",
                     eng.status === "active"
                       ? "bg-green-500/10 text-green-300 border-green-500/30"
-                      : "bg-gray-500/10 text-gray-400 border-gray-500/30",
+                      : "bg-gray-500/10 text-[var(--text-muted)] border-gray-500/30",
                   )}
                 >
                   {eng.status}
                 </span>
-                <span className="text-xs text-gray-600">
+                <span className="text-xs text-[var(--text-faint)]">
                   {new Date(eng.created_at).toLocaleDateString()}
                 </span>
               </div>
@@ -293,26 +294,26 @@ function NewScopeRuleForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="bg-gray-900/50 border border-gray-800 rounded-lg p-4 mb-3 space-y-3"
+      className="bg-[var(--bg-panel)] border border-[var(--border-default)] rounded-[6px] p-4 mb-3 space-y-3"
     >
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div>
-          <label className="block text-xs text-gray-400 mb-1.5">Rule</label>
+          <label className="block text-xs text-[var(--text-muted)] mb-1.5">Rule</label>
           <select
             value={ruleType}
             onChange={(e) => setRuleType(e.target.value as "include" | "exclude")}
-            className="w-full bg-gray-950 border border-gray-700 rounded-md px-2.5 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500"
+            className="w-full bg-[var(--bg-inset)] border border-[var(--border-default)] rounded-md px-2.5 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-blue-500"
           >
             <option value="include">Include</option>
             <option value="exclude">Exclude</option>
           </select>
         </div>
         <div>
-          <label className="block text-xs text-gray-400 mb-1.5">Target Type</label>
+          <label className="block text-xs text-[var(--text-muted)] mb-1.5">Target Type</label>
           <select
             value={targetType}
             onChange={(e) => setTargetType(e.target.value)}
-            className="w-full bg-gray-950 border border-gray-700 rounded-md px-2.5 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500"
+            className="w-full bg-[var(--bg-inset)] border border-[var(--border-default)] rounded-md px-2.5 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-blue-500"
           >
             {TARGET_TYPES.map((t) => (
               <option key={t} value={t}>
@@ -322,22 +323,22 @@ function NewScopeRuleForm({
           </select>
         </div>
         <div className="col-span-2 sm:col-span-1">
-          <label className="block text-xs text-gray-400 mb-1.5">Pattern</label>
+          <label className="block text-xs text-[var(--text-muted)] mb-1.5">Pattern</label>
           <input
             required
             value={pattern}
             onChange={(e) => setPattern(e.target.value)}
-            className="w-full bg-gray-950 border border-gray-700 rounded-md px-2.5 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-blue-500"
+            className="w-full bg-[var(--bg-inset)] border border-[var(--border-default)] rounded-md px-2.5 py-2 text-sm text-[var(--text-primary)] placeholder-gray-600 focus:outline-none focus:border-blue-500"
             placeholder="*.example.com"
           />
         </div>
         <div className="flex items-end pb-1">
-          <label className="flex items-center gap-2 text-xs text-gray-400">
+          <label className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
             <input
               type="checkbox"
               checked={isWildcard}
               onChange={(e) => setIsWildcard(e.target.checked)}
-              className="rounded border-gray-700 bg-gray-950 text-blue-500 focus:ring-blue-500"
+              className="rounded border-[var(--border-default)] bg-[var(--bg-inset)] text-blue-500 focus:ring-blue-500"
             />
             Wildcard
           </label>
@@ -345,11 +346,11 @@ function NewScopeRuleForm({
       </div>
 
       <div>
-        <label className="block text-xs text-gray-400 mb-1.5">Notes</label>
+        <label className="block text-xs text-[var(--text-muted)] mb-1.5">Notes</label>
         <input
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          className="w-full bg-gray-950 border border-gray-700 rounded-md px-2.5 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-blue-500"
+          className="w-full bg-[var(--bg-inset)] border border-[var(--border-default)] rounded-md px-2.5 py-2 text-sm text-[var(--text-primary)] placeholder-gray-600 focus:outline-none focus:border-blue-500"
         />
       </div>
 
@@ -365,14 +366,14 @@ function NewScopeRuleForm({
         <button
           type="button"
           onClick={onDone}
-          className="px-3 py-1.5 text-xs rounded-md border border-gray-700 text-gray-300 hover:bg-gray-800 transition-colors"
+          className="px-3 py-1.5 text-xs rounded-md border border-[var(--border-default)] text-[var(--text-secondary)] hover:bg-gray-800 transition-colors"
         >
           Cancel
         </button>
         <button
           type="submit"
           disabled={mutation.isPending || !pattern.trim()}
-          className="px-3 py-1.5 text-xs font-medium rounded-md bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 disabled:cursor-not-allowed text-white transition-colors"
+          className="px-3 py-1.5 text-xs font-medium rounded-md bg-[var(--text-primary)] hover:opacity-90 disabled:bg-blue-800 disabled:cursor-not-allowed text-white transition-colors"
         >
           {mutation.isPending ? "Adding..." : "Add Rule"}
         </button>
@@ -401,22 +402,22 @@ function ScopeRuleRow({
 
   return (
     <>
-      <div className="flex items-center justify-between gap-4 py-2.5 px-3 border-b border-gray-800/60 last:border-0">
+      <div className="flex items-center justify-between gap-4 py-2.5 px-3 border-b border-[var(--border-default)]/60 last:border-0">
         <div className="flex items-center gap-3 min-w-0">
           <span
             className={clsx(
               "text-xs px-2 py-0.5 rounded-full border flex-shrink-0",
               rule.rule_type === "include"
-                ? "bg-blue-500/10 text-blue-300 border-blue-500/30"
+                ? "bg-blue-500/10 text-[var(--active)] border-blue-500/30"
                 : "bg-red-500/10 text-red-300 border-red-500/30",
             )}
           >
             {rule.rule_type}
           </span>
-          <span className="text-xs text-gray-500 flex-shrink-0">{rule.target_type}</span>
-          <span className="text-sm text-gray-100 font-mono truncate">{rule.pattern}</span>
+          <span className="text-xs text-[var(--text-faint)] flex-shrink-0">{rule.target_type}</span>
+          <span className="text-sm text-[var(--text-primary)] font-mono truncate">{rule.pattern}</span>
           {rule.is_wildcard && (
-            <span className="text-xs text-gray-600 flex-shrink-0">wildcard</span>
+            <span className="text-xs text-[var(--text-faint)] flex-shrink-0">wildcard</span>
           )}
         </div>
         <button
@@ -481,11 +482,11 @@ function ScopeTab({ projectId }: { projectId: string }) {
     <div>
       <div className="flex items-center justify-between gap-4 mb-4">
         <div className="flex items-center gap-2">
-          <label className="text-xs text-gray-400">Engagement</label>
+          <label className="text-xs text-[var(--text-muted)]">Engagement</label>
           <select
             value={activeEngagementId}
             onChange={(e) => setSelectedEngagementId(e.target.value)}
-            className="bg-gray-950 border border-gray-700 rounded-md px-2.5 py-1.5 text-sm text-gray-100 focus:outline-none focus:border-blue-500"
+            className="bg-[var(--bg-inset)] border border-[var(--border-default)] rounded-md px-2.5 py-1.5 text-sm text-[var(--text-primary)] focus:outline-none focus:border-blue-500"
           >
             {engagements.map((eng) => (
               <option key={eng.id} value={eng.id}>
@@ -497,7 +498,7 @@ function ScopeTab({ projectId }: { projectId: string }) {
         {!showForm && (
           <button
             onClick={() => setShowForm(true)}
-            className="px-3 py-1.5 text-xs font-medium rounded-md bg-blue-600 hover:bg-blue-500 text-white transition-colors"
+            className="px-3 py-1.5 text-xs font-medium rounded-md bg-[var(--text-primary)] hover:opacity-90 text-white transition-colors"
           >
             Add Scope Rule
           </button>
@@ -532,10 +533,19 @@ function ScopeTab({ projectId }: { projectId: string }) {
       )}
 
       {!scopeQuery.isLoading && !scopeQuery.isError && scopeQuery.data && scopeQuery.data.length > 0 && (
-        <div className="bg-gray-900/50 border border-gray-800 rounded-lg">
-          {scopeQuery.data.map((rule) => (
-            <ScopeRuleRow key={rule.id} rule={rule} engagementId={activeEngagementId} />
-          ))}
+        <div className="space-y-4">
+          <AuthorizationBoundary
+            engagement={engagements.find((e) => e.id === activeEngagementId) ?? null}
+            rules={scopeQuery.data}
+          />
+          <div>
+            <p className="mono text-[11px] tracking-[0.08em] mb-2" style={{ color: "var(--text-faint)" }}>RULES — MANAGE</p>
+            <div className="bg-[var(--bg-panel)] border border-[var(--border-default)] rounded-[6px]">
+              {scopeQuery.data.map((rule) => (
+                <ScopeRuleRow key={rule.id} rule={rule} engagementId={activeEngagementId} />
+              ))}
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -598,9 +608,9 @@ function NewRunForm({ projectId, onDone }: { projectId: string; onDone: () => vo
   return (
     <form
       onSubmit={handleSubmit}
-      className="bg-gray-900/50 border border-gray-800 rounded-lg p-5 mb-4 space-y-4"
+      className="bg-[var(--bg-panel)] border border-[var(--border-default)] rounded-[6px] p-5 mb-4 space-y-4"
     >
-      <h3 className="text-sm font-medium text-gray-300">New Run</h3>
+      <h3 className="text-sm font-medium text-[var(--text-secondary)]">New Run</h3>
 
       {mutation.isError && (
         <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm px-3 py-2 rounded-md">
@@ -617,20 +627,20 @@ function NewRunForm({ projectId, onDone }: { projectId: string; onDone: () => vo
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs text-gray-400 mb-1.5">Title</label>
+          <label className="block text-xs text-[var(--text-muted)] mb-1.5">Title</label>
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="w-full bg-gray-950 border border-gray-700 rounded-md px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-blue-500"
+            className="w-full bg-[var(--bg-inset)] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-[var(--text-primary)] placeholder-gray-600 focus:outline-none focus:border-blue-500"
             placeholder="Baseline HTTP Security Review"
           />
         </div>
         <div>
-          <label className="block text-xs text-gray-400 mb-1.5">Engagement</label>
+          <label className="block text-xs text-[var(--text-muted)] mb-1.5">Engagement</label>
           <select
             value={engagementId}
             onChange={(e) => setEngagementId(e.target.value)}
-            className="w-full bg-gray-950 border border-gray-700 rounded-md px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500"
+            className="w-full bg-[var(--bg-inset)] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-blue-500"
           >
             <option value="">Select an engagement…</option>
             {engagements.map((eng) => (
@@ -641,45 +651,45 @@ function NewRunForm({ projectId, onDone }: { projectId: string; onDone: () => vo
           </select>
         </div>
         <div>
-          <label className="block text-xs text-gray-400 mb-1.5">Agent profile</label>
+          <label className="block text-xs text-[var(--text-muted)] mb-1.5">Agent profile</label>
           <input
             value={agentProfile}
             onChange={(e) => setAgentProfile(e.target.value)}
-            className="w-full bg-gray-950 border border-gray-700 rounded-md px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-blue-500"
+            className="w-full bg-[var(--bg-inset)] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-[var(--text-primary)] placeholder-gray-600 focus:outline-none focus:border-blue-500"
             placeholder="passive_recon"
           />
         </div>
         <div>
-          <label className="block text-xs text-gray-400 mb-1.5">Step action</label>
+          <label className="block text-xs text-[var(--text-muted)] mb-1.5">Step action</label>
           <input
             value={action}
             onChange={(e) => setAction(e.target.value)}
-            className="w-full bg-gray-950 border border-gray-700 rounded-md px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-blue-500"
+            className="w-full bg-[var(--bg-inset)] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-[var(--text-primary)] placeholder-gray-600 focus:outline-none focus:border-blue-500"
             placeholder="http_header_review"
           />
         </div>
       </div>
 
       <div>
-        <label className="block text-xs text-gray-400 mb-1.5">
+        <label className="block text-xs text-[var(--text-muted)] mb-1.5">
           Step target (must be inside the engagement scope)
         </label>
         <input
           required
           value={target}
           onChange={(e) => setTarget(e.target.value)}
-          className="w-full bg-gray-950 border border-gray-700 rounded-md px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-blue-500 font-mono"
+          className="w-full bg-[var(--bg-inset)] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-[var(--text-primary)] placeholder-gray-600 focus:outline-none focus:border-blue-500 font-mono"
           placeholder="demo-target"
         />
       </div>
 
       <div>
-        <label className="block text-xs text-gray-400 mb-1.5">Step prompt</label>
+        <label className="block text-xs text-[var(--text-muted)] mb-1.5">Step prompt</label>
         <textarea
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           rows={2}
-          className="w-full bg-gray-950 border border-gray-700 rounded-md px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-blue-500"
+          className="w-full bg-[var(--bg-inset)] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-[var(--text-primary)] placeholder-gray-600 focus:outline-none focus:border-blue-500"
           placeholder="Review the HTTP response headers of the target for hardening concerns. Passive only."
         />
       </div>
@@ -688,14 +698,14 @@ function NewRunForm({ projectId, onDone }: { projectId: string; onDone: () => vo
         <button
           type="button"
           onClick={onDone}
-          className="px-3.5 py-1.5 text-sm rounded-md border border-gray-700 text-gray-300 hover:bg-gray-800 transition-colors"
+          className="px-3.5 py-1.5 text-sm rounded-md border border-[var(--border-default)] text-[var(--text-secondary)] hover:bg-gray-800 transition-colors"
         >
           Cancel
         </button>
         <button
           type="submit"
           disabled={mutation.isPending || !target.trim()}
-          className="px-3.5 py-1.5 text-sm font-medium rounded-md bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 disabled:cursor-not-allowed text-white transition-colors"
+          className="px-3.5 py-1.5 text-sm font-medium rounded-md bg-[var(--text-primary)] hover:opacity-90 disabled:bg-blue-800 disabled:cursor-not-allowed text-white transition-colors"
         >
           {mutation.isPending ? "Creating..." : "Create Run"}
         </button>
@@ -752,15 +762,15 @@ function RunRow({ run }: { run: Run }) {
 
   return (
     <>
-      <div className="flex items-center justify-between gap-4 py-3 px-4 border-b border-gray-800/60 last:border-0">
+      <div className="flex items-center justify-between gap-4 py-3 px-4 border-b border-[var(--border-default)]/60 last:border-0">
         <div className="min-w-0">
           <Link
             to={`/runs/${run.id}`}
-            className="text-sm font-medium text-gray-100 truncate hover:text-blue-400 transition-colors block"
+            className="text-sm font-medium text-[var(--text-primary)] truncate hover:text-[var(--active)] transition-colors block"
           >
             {run.title || "Untitled run"}
           </Link>
-          <p className="text-xs text-gray-500 mt-0.5">
+          <p className="text-xs text-[var(--text-faint)] mt-0.5">
             {run.agent_profile || "no agent profile"} ·{" "}
             {new Date(run.created_at).toLocaleString()}
           </p>
@@ -776,7 +786,7 @@ function RunRow({ run }: { run: Run }) {
             <>
               <button
                 onClick={() => setPendingAction("approve")}
-                className="px-2.5 py-1 text-xs font-medium rounded-md bg-green-600 hover:bg-green-500 text-white transition-colors"
+                className="px-2.5 py-1 text-xs font-medium rounded-md bg-[var(--pass)] hover:bg-green-500 text-white transition-colors"
               >
                 Approve
               </button>
@@ -792,13 +802,13 @@ function RunRow({ run }: { run: Run }) {
           {!isAwaitingApproval && isCancellable && (
             <button
               onClick={() => setPendingAction("cancel")}
-              className="px-2.5 py-1 text-xs font-medium rounded-md border border-gray-700 text-gray-300 hover:bg-gray-800 transition-colors"
+              className="px-2.5 py-1 text-xs font-medium rounded-md border border-[var(--border-default)] text-[var(--text-secondary)] hover:bg-gray-800 transition-colors"
             >
               Cancel
             </button>
           )}
 
-          {isTerminal && <span className="text-xs text-gray-600 px-1">no actions</span>}
+          {isTerminal && <span className="text-xs text-[var(--text-faint)] px-1">no actions</span>}
         </div>
       </div>
 
@@ -847,14 +857,14 @@ function RunRow({ run }: { run: Run }) {
         }}
       >
         <div>
-          <label className="block text-xs text-gray-400 mb-1.5">
+          <label className="block text-xs text-[var(--text-muted)] mb-1.5">
             Justification (optional)
           </label>
           <textarea
             value={justification}
             onChange={(e) => setJustification(e.target.value)}
             rows={3}
-            className="w-full bg-gray-950 border border-gray-700 rounded-md px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            className="w-full bg-[var(--bg-inset)] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-[var(--text-primary)] placeholder-gray-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
             placeholder="Reasoning for this decision..."
           />
         </div>
@@ -876,11 +886,11 @@ function RunsTab({ projectId }: { projectId: string }) {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-sm font-medium text-gray-300">Runs</h2>
+        <h2 className="text-sm font-medium text-[var(--text-secondary)]">Runs</h2>
         {!showForm && (
           <button
             onClick={() => setShowForm(true)}
-            className="px-3 py-1.5 text-xs font-medium rounded-md bg-blue-600 hover:bg-blue-500 text-white transition-colors"
+            className="px-3 py-1.5 text-xs font-medium rounded-md bg-[var(--text-primary)] hover:opacity-90 text-white transition-colors"
           >
             New Run
           </button>
@@ -906,7 +916,7 @@ function RunsTab({ projectId }: { projectId: string }) {
       )}
 
       {!isLoading && !isError && projectRuns.length > 0 && (
-        <div className="bg-gray-900/50 border border-gray-800 rounded-lg">
+        <div className="bg-[var(--bg-panel)] border border-[var(--border-default)] rounded-[6px]">
           {projectRuns.map((run) => (
             <RunRow key={run.id} run={run} />
           ))}
@@ -947,28 +957,28 @@ export default function ProjectDetail() {
   return (
     <div>
       <div className="mb-6">
-        <Link to="/projects" className="text-xs text-gray-500 hover:text-gray-300">
+        <Link to="/projects" className="text-xs text-[var(--text-faint)] hover:text-[var(--text-secondary)]">
           ← Back to Projects
         </Link>
         <div className="flex items-center gap-3 mt-2">
-          <h1 className="text-2xl font-bold text-gray-100">{project.name}</h1>
+          <h1 className="text-2xl font-bold text-[var(--text-primary)]">{project.name}</h1>
           <span
             className={clsx(
               "text-xs px-2 py-0.5 rounded-full border",
               project.status === "active"
                 ? "bg-green-500/10 text-green-300 border-green-500/30"
-                : "bg-gray-500/10 text-gray-400 border-gray-500/30",
+                : "bg-gray-500/10 text-[var(--text-muted)] border-gray-500/30",
             )}
           >
             {project.status}
           </span>
         </div>
-        <p className="text-sm text-gray-500 mt-1">
+        <p className="text-sm text-[var(--text-faint)] mt-1">
           {project.description || "No description provided."}
         </p>
       </div>
 
-      <div className="border-b border-gray-800 mb-6">
+      <div className="border-b border-[var(--border-default)] mb-6">
         <nav className="flex gap-1">
           {TABS.map((t) => (
             <button
@@ -977,8 +987,8 @@ export default function ProjectDetail() {
               className={clsx(
                 "px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px",
                 tab === t.id
-                  ? "border-blue-400 text-blue-400"
-                  : "border-transparent text-gray-500 hover:text-gray-300",
+                  ? "border-[var(--active)] text-[var(--active)]"
+                  : "border-transparent text-[var(--text-faint)] hover:text-[var(--text-secondary)]",
               )}
             >
               {t.label}

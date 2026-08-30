@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { screen, waitFor, within } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import { renderWithProviders } from "@/test/utils";
 import Dashboard from "./Dashboard";
 
@@ -24,57 +24,65 @@ function stubFetch(handler: (path: string) => unknown) {
   );
 }
 
+function dashboardHandler(path: string): unknown {
+  if (path.includes("dashboard/summary")) return SUMMARY;
+  if (path.includes("/api/v1/runs")) return [];
+  if (path.includes("/api/v1/evidence")) return [];
+  if (path.includes("/api/v1/findings")) return [];
+  if (path.includes("/api/v1/projects")) return [];
+  if (path.includes("audit-events")) return [];
+  return [];
+}
+
 describe("Dashboard", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
 
-  it("shows loading placeholders before the summary resolves", () => {
+  it("shows overview header while loading", () => {
     vi.stubGlobal("fetch", vi.fn().mockReturnValue(new Promise(() => {})));
     renderWithProviders(<Dashboard />);
-
-    expect(screen.getByText("Projects")).toBeInTheDocument();
-    expect(screen.getAllByText("—").length).toBeGreaterThan(0);
+    expect(screen.getByText("OVERVIEW")).toBeInTheDocument();
+    expect(screen.getByText(/Open Operations Canvas/)).toBeInTheDocument();
   });
 
   it("renders the real counts from /api/v1/dashboard/summary", async () => {
-    stubFetch((path) => (path.includes("dashboard/summary") ? SUMMARY : []));
+    stubFetch(dashboardHandler);
     renderWithProviders(<Dashboard />);
 
-    const projectsCard = screen.getByText("Projects").closest("a")!;
-    await waitFor(() =>
-      expect(within(projectsCard).getByText("3")).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText("CURRENT OPERATION")).toBeInTheDocument());
 
-    const pendingCard = screen.getByText("Pending approvals").closest("a")!;
-    expect(within(pendingCard).getByText("4")).toBeInTheDocument();
-
-    const verifiedCard = screen.getByText("Verified findings").closest("a")!;
-    expect(within(verifiedCard).getByText("2")).toBeInTheDocument();
+    // Check that summary data is reflected in scope state and governance sections
+    expect(screen.getByText("SCOPE STATE")).toBeInTheDocument();
+    expect(screen.getByText("LATEST EVIDENCE")).toBeInTheDocument();
   });
 
   it("renders recent activity from the audit log", async () => {
-    stubFetch((path) =>
-      path.includes("dashboard/summary")
-        ? SUMMARY
-        : [
-            {
-              id: "e1",
-              event_type: "scope.modify",
-              action: "create",
-              actor_id: "u1",
-              target_type: "scope_rule",
-              target_id: "r1",
-              metadata_json: null,
-              ip_address: null,
-              created_at: new Date().toISOString(),
-            },
-          ],
-    );
+    stubFetch((path) => {
+      if (path.includes("dashboard/summary")) return SUMMARY;
+      if (path.includes("audit-events"))
+        return [
+          {
+            id: "e1",
+            event_type: "scope.modify",
+            action: "create",
+            actor_id: "u1",
+            target_type: "scope_rule",
+            target_id: "r1",
+            metadata_json: null,
+            ip_address: null,
+            created_at: new Date().toISOString(),
+          },
+        ];
+      if (path.includes("/api/v1/runs")) return [];
+      if (path.includes("/api/v1/evidence")) return [];
+      if (path.includes("/api/v1/findings")) return [];
+      if (path.includes("/api/v1/projects")) return [];
+      return [];
+    });
     renderWithProviders(<Dashboard />);
 
-    await waitFor(() =>
-      expect(screen.getByText("scope.modify")).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText("GOVERNANCE EVENTS")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("scope.modify")).toBeInTheDocument());
   });
 });

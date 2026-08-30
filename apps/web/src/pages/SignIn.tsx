@@ -26,7 +26,7 @@ export default function SignIn() {
       } else {
         await login(email, password);
       }
-      navigate("/dashboard");
+      navigate("/operations");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Network error. Please try again.");
     } finally {
@@ -38,11 +38,11 @@ export default function SignIn() {
     <div className="min-h-screen flex items-center justify-center bg-[#0a0e17] px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold tracking-wider text-blue-400 mb-1">MORPHIA</h1>
-          <p className="text-xs text-gray-500 tracking-[0.3em]">UNREALISTICALLY REAL</p>
+          <h1 className="text-3xl font-bold tracking-wider text-[var(--active)] mb-1">MORPHIA</h1>
+          <p className="text-xs text-[var(--text-faint)] tracking-[0.3em]">UNREALISTICALLY REAL</p>
         </div>
 
-        <h2 className="text-sm text-gray-400 mb-4 text-center">
+        <h2 className="text-sm text-[var(--text-muted)] mb-4 text-center">
           {isRegister ? "Create your account" : "Sign in to continue"}
         </h2>
 
@@ -58,7 +58,7 @@ export default function SignIn() {
 
           {isRegister && (
             <div>
-              <label htmlFor="display_name" className="block text-sm text-gray-400 mb-1.5">
+              <label htmlFor="display_name" className="block text-sm text-[var(--text-muted)] mb-1.5">
                 Display name
               </label>
               <input
@@ -67,7 +67,7 @@ export default function SignIn() {
                 type="text"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                className="w-full bg-gray-900 border border-gray-700 rounded-md px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                className="w-full bg-[var(--bg-panel)] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-[var(--text-primary)] placeholder-gray-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                 placeholder="Ada Lovelace"
                 autoComplete="name"
               />
@@ -75,7 +75,7 @@ export default function SignIn() {
           )}
 
           <div>
-            <label htmlFor="email" className="block text-sm text-gray-400 mb-1.5">
+            <label htmlFor="email" className="block text-sm text-[var(--text-muted)] mb-1.5">
               Email
             </label>
             <input
@@ -85,14 +85,14 @@ export default function SignIn() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-gray-900 border border-gray-700 rounded-md px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              className="w-full bg-[var(--bg-panel)] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-[var(--text-primary)] placeholder-gray-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
               placeholder="you@example.com"
               autoComplete="email"
             />
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm text-gray-400 mb-1.5">
+            <label htmlFor="password" className="block text-sm text-[var(--text-muted)] mb-1.5">
               Password
             </label>
             <input
@@ -103,7 +103,7 @@ export default function SignIn() {
               minLength={8}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-gray-900 border border-gray-700 rounded-md px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              className="w-full bg-[var(--bg-panel)] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-[var(--text-primary)] placeholder-gray-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
               placeholder="••••••••"
               autoComplete={isRegister ? "new-password" : "current-password"}
             />
@@ -112,7 +112,7 @@ export default function SignIn() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 disabled:cursor-not-allowed text-white text-sm font-medium py-2.5 rounded-md transition-colors"
+            className="w-full bg-[var(--text-primary)] hover:opacity-90 disabled:bg-blue-800 disabled:cursor-not-allowed text-white text-sm font-medium py-2.5 rounded-md transition-colors"
           >
             {loading
               ? isRegister
@@ -131,7 +131,7 @@ export default function SignIn() {
               setMode(isRegister ? "login" : "register");
               setError("");
             }}
-            className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+            className="text-xs text-[var(--text-faint)] hover:text-[var(--text-secondary)] transition-colors"
           >
             {isRegister
               ? "Already have an account? Sign in"
@@ -139,7 +139,7 @@ export default function SignIn() {
           </button>
         </div>
 
-        <p className="text-center text-xs text-gray-600 mt-8">
+        <p className="text-center text-xs text-[var(--text-faint)] mt-8">
           Human-in-the-loop orchestration for authorized security research
         </p>
       </div>

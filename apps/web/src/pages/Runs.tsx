@@ -64,16 +64,16 @@ function RunListItem({
 
   return (
     <>
-      <div className="border-b border-gray-800/60 last:border-0">
+      <div className="border-b border-[var(--border-default)]/60 last:border-0">
         <button
           onClick={onToggle}
           className="w-full flex items-center justify-between gap-4 py-3 px-4 text-left hover:bg-gray-800/30 transition-colors"
         >
           <div className="min-w-0">
-            <p className="text-sm font-medium text-gray-100 truncate">
+            <p className="text-sm font-medium text-[var(--text-primary)] truncate">
               {run.title || "Untitled run"}
             </p>
-            <p className="text-xs text-gray-500 mt-0.5">
+            <p className="text-xs text-[var(--text-faint)] mt-0.5">
               {projectName} · {new Date(run.created_at).toLocaleString()}
             </p>
           </div>
@@ -82,15 +82,15 @@ function RunListItem({
 
         {expanded && (
           <div className="px-4 pb-4 -mt-1">
-            <div className="bg-gray-950/50 border border-gray-800 rounded-lg p-3 space-y-2">
+            <div className="bg-[var(--bg-inset)]/50 border border-[var(--border-default)] rounded-[6px] p-3 space-y-2">
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div>
-                  <span className="text-gray-500">Agent profile: </span>
-                  <span className="text-gray-300">{run.agent_profile || "—"}</span>
+                  <span className="text-[var(--text-faint)]">Agent profile: </span>
+                  <span className="text-[var(--text-secondary)]">{run.agent_profile || "—"}</span>
                 </div>
                 <div>
-                  <span className="text-gray-500">Updated: </span>
-                  <span className="text-gray-300">
+                  <span className="text-[var(--text-faint)]">Updated: </span>
+                  <span className="text-[var(--text-secondary)]">
                     {new Date(run.updated_at).toLocaleString()}
                   </span>
                 </div>
@@ -104,7 +104,7 @@ function RunListItem({
                   <>
                     <button
                       onClick={() => setPendingAction("approve")}
-                      className="px-2.5 py-1 text-xs font-medium rounded-md bg-green-600 hover:bg-green-500 text-white transition-colors"
+                      className="px-2.5 py-1 text-xs font-medium rounded-md bg-[var(--pass)] hover:bg-green-500 text-white transition-colors"
                     >
                       Approve
                     </button>
@@ -119,19 +119,19 @@ function RunListItem({
                 {!isAwaitingApproval && isCancellable && (
                   <button
                     onClick={() => setPendingAction("cancel")}
-                    className="px-2.5 py-1 text-xs font-medium rounded-md border border-gray-700 text-gray-300 hover:bg-gray-800 transition-colors"
+                    className="px-2.5 py-1 text-xs font-medium rounded-md border border-[var(--border-default)] text-[var(--text-secondary)] hover:bg-gray-800 transition-colors"
                   >
                     Cancel Run
                   </button>
                 )}
                 {isTerminal && (
-                  <span className="text-xs text-gray-600">
+                  <span className="text-xs text-[var(--text-faint)]">
                     Terminal state — no further actions.
                   </span>
                 )}
                 <Link
                   to={`/runs/${run.id}`}
-                  className="text-xs text-blue-400 hover:text-blue-300 ml-auto"
+                  className="text-xs text-[var(--active)] hover:text-[var(--active)] ml-auto"
                 >
                   Open run →
                 </Link>
@@ -186,14 +186,14 @@ function RunListItem({
         }}
       >
         <div>
-          <label className="block text-xs text-gray-400 mb-1.5">
+          <label className="block text-xs text-[var(--text-muted)] mb-1.5">
             Justification (optional)
           </label>
           <textarea
             value={justification}
             onChange={(e) => setJustification(e.target.value)}
             rows={3}
-            className="w-full bg-gray-950 border border-gray-700 rounded-md px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            className="w-full bg-[var(--bg-inset)] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-[var(--text-primary)] placeholder-gray-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
             placeholder="Reasoning for this decision..."
           />
         </div>
@@ -232,8 +232,8 @@ export default function Runs() {
     <div>
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-100">Runs</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-2xl font-bold text-[var(--text-primary)]">Runs</h1>
+          <p className="text-sm text-[var(--text-faint)] mt-1">
             All orchestration runs across every project
           </p>
         </div>
@@ -241,7 +241,7 @@ export default function Runs() {
         <select
           value={stateFilter}
           onChange={(e) => setStateFilter(e.target.value as RunState | "all")}
-          className="bg-gray-950 border border-gray-700 rounded-md px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500"
+          className="bg-[var(--bg-inset)] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-blue-500"
         >
           <option value="all">All states</option>
           {RUN_STATES.map((s) => (
@@ -277,7 +277,7 @@ export default function Runs() {
       )}
 
       {!runsQuery.isLoading && !runsQuery.isError && filteredRuns.length > 0 && (
-        <div className="bg-gray-900/50 border border-gray-800 rounded-lg">
+        <div className="bg-[var(--bg-panel)] border border-[var(--border-default)] rounded-[6px]">
           {filteredRuns.map((run) => (
             <RunListItem
               key={run.id}

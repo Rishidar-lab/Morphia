@@ -29,7 +29,7 @@ describe("SignIn", () => {
     renderWithProviders(<SignIn />);
     fillAndSubmit("researcher@example.com", "correct-horse-battery");
 
-    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith("/dashboard"));
+    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith("/operations"));
 
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/auth/login",
