@@ -127,7 +127,7 @@ export function ApprovalGate({
 
           <div className="rounded-[6px] p-3" style={{ background: "var(--bg-panel)", border: "1px solid var(--border-default)" }}>
             <label className="mono text-[11px] tracking-[0.08em] font-medium" style={{ color: "var(--text-faint)" }}>
-              DECISION JUSTIFICATION <span style={{ color: "var(--text-faint)" }}>(optional but audited)</span>
+              DECISION JUSTIFICATION <span style={{ color: "var(--attention)" }}>(required — recorded in audit trail)</span>
             </label>
             <textarea
               value={justification}
@@ -165,7 +165,7 @@ export function ApprovalGate({
               </button>
             </div>
             <p className="mono text-[11px] mt-2 leading-tight" style={{ color: "var(--text-faint)" }}>
-              Decision is recorded with actor, timestamp, and justification. No self-approval bypass.
+              Decision is recorded with actor, timestamp, and justification. Self-approvals are flagged in the audit trail.
             </p>
           </div>
         </div>

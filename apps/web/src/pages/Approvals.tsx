@@ -96,7 +96,9 @@ function ApprovalCard({ run, projectName }: { run: Run; projectName: string }) {
         }}
       >
         <div>
-          <label className="block text-xs text-[var(--text-muted)] mb-1.5">Justification</label>
+          <label className="block text-xs text-[var(--text-muted)] mb-1.5">
+            Justification (required — recorded in audit trail)
+          </label>
           <textarea
             value={justification}
             onChange={(e) => setJustification(e.target.value)}

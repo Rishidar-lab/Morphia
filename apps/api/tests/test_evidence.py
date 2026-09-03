@@ -66,7 +66,7 @@ async def test_upload_evidence(client: AsyncClient):
     await _register_and_login(client, "evidence-upload@example.com")
     project_id = await _create_project(client, "Evidence Upload Project")
 
-    file_bytes = b"mock evidence file contents"
+    file_bytes = b"\x89PNG\r\n\x1a\n" + b"mock evidence file contents"
     response = await client.post(
         f"/api/v1/projects/{project_id}/evidence",
         files={"file": ("screenshot.png", file_bytes, "image/png")},

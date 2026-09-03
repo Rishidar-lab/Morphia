@@ -138,6 +138,9 @@ test("full journey: allowed run completes end to end", async ({ page }) => {
   });
 
   await driveRunToApproval(page, runTitle);
+  await page
+    .getByPlaceholder(/Why this plan is safe/)
+    .fill("E2E approval: synthetic in-scope target, mock provider, reviewed plan.");
   await page.getByRole("button", { name: /Approve — authorize execution/ }).click();
 
   await expect(page.getByText("RUNNING → COMPLETED")).toBeVisible({ timeout: 45_000 });
@@ -163,6 +166,9 @@ test("scope-denied path: out-of-scope target is refused", async ({ page }) => {
   });
 
   await driveRunToApproval(page, runTitle);
+  await page
+    .getByPlaceholder(/Why this plan is safe/)
+    .fill("E2E approval: expecting scope refusal for out-of-scope target.");
   await page.getByRole("button", { name: /Approve — authorize execution/ }).click();
 
   await expect(page.getByText("run.scope_denied")).toBeVisible({ timeout: 45_000 });

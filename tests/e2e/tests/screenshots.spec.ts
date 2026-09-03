@@ -37,7 +37,7 @@ test.describe("documentation screenshots", () => {
   test("capture operations intelligence screenshots", async ({ page }) => {
     // 1. Operations Command Center — signature view
     await page.goto("/operations");
-    await expect(page.getByText("OPERATIONS — COMMAND CENTER")).toBeVisible();
+    await expect(page.getByText("OPERATIONS — COMMAND CENTER", { exact: true })).toBeVisible();
     await shoot(page, "operations");
 
     // 2. Human Approval Gate (awaiting run)
@@ -53,7 +53,7 @@ test.describe("documentation screenshots", () => {
     await page.getByRole("link", { name: "Morphia Demo Research" }).click();
     await page.getByRole("button", { name: "Runs", exact: true }).click();
     await page.getByRole("link", { name: "Baseline HTTP Security Review" }).click();
-    await expect(page.getByText("EXECUTION GRAPH")).toBeVisible();
+    await expect(page.getByText("EXECUTION GRAPH — OPERATION PIPELINE", { exact: true })).toBeVisible();
     await shoot(page, "run-detail");
     await shoot(page, "execution-graph");
 
@@ -61,7 +61,7 @@ test.describe("documentation screenshots", () => {
     await page.goto("/projects");
     await page.getByRole("link", { name: "Morphia Demo Research" }).click();
     await page.getByRole("button", { name: "Scope", exact: true }).click();
-    await expect(page.getByText("AUTHORIZATION BOUNDARY")).toBeVisible();
+    await expect(page.getByTestId("authorization-boundary")).toBeVisible();
     await shoot(page, "scope");
     await shoot(page, "authorization-boundary");
 
@@ -70,18 +70,18 @@ test.describe("documentation screenshots", () => {
     await page.getByRole("link", { name: "Morphia Demo Research" }).click();
     await page.getByRole("button", { name: "Runs", exact: true }).click();
     await page.getByRole("link", { name: "Out-of-Scope Probe — Blocked by Policy" }).click();
-    await expect(page.getByText("BLOCKED")).toBeVisible();
+    await expect(page.getByText("BLOCKED", { exact: true }).first()).toBeVisible();
     await shoot(page, "blocked-execution");
 
     // 6. Evidence provenance
     await page.goto("/evidence");
-    await expect(page.getByText("EVIDENCE")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "EVIDENCE" })).toBeVisible();
     await shoot(page, "evidence");
     await shoot(page, "evidence-provenance");
 
     // 7. Finding analyst workspace
     await page.goto("/findings");
-    await expect(page.getByText("FINDINGS")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "FINDINGS" })).toBeVisible();
     await shoot(page, "findings");
     await shoot(page, "finding-workspace");
 
@@ -91,7 +91,7 @@ test.describe("documentation screenshots", () => {
 
     // 9. Audit / Governance
     await page.goto("/audit");
-    await expect(page.getByText("GOVERNANCE — AUDIT LOG")).toBeVisible();
+    await expect(page.getByText("GOVERNANCE — AUDIT LOG", { exact: true })).toBeVisible();
     await shoot(page, "audit-log");
     await shoot(page, "governance");
 

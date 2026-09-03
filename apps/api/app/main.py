@@ -10,9 +10,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from slowapi.errors import RateLimitExceeded
 
-from app.core.config import get_settings
+from app.core.config import APP_VERSION, get_settings
 from app.core.limiter import limiter
 from app.middleware.csrf import CSRFMiddleware
+from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.routers import (
     aggregate,
     auth,
@@ -24,6 +25,7 @@ from app.routers import (
     reports,
     runs,
     scope,
+    system,
     worker,
 )
 
@@ -59,7 +61,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 app = FastAPI(
     title="MORPHIA",
     description="Cybersecurity research orchestration platform",
-    version="0.1.0",
+    version=APP_VERSION,
     docs_url="/api/docs" if not settings.is_production else None,
     redoc_url="/api/redoc" if not settings.is_production else None,
     lifespan=lifespan,
@@ -77,6 +79,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.add_middleware(CSRFMiddleware)
+app.add_middleware(SecurityHeadersMiddleware, is_production=settings.is_production)
 
 
 # ── Error Handlers ───────────────────────────────────────
@@ -136,3 +139,4 @@ app.include_router(evidence.router, prefix="/api/v1", tags=["evidence"])
 app.include_router(findings.router, prefix="/api/v1", tags=["findings"])
 app.include_router(reports.router, prefix="/api/v1", tags=["reports"])
 app.include_router(worker.router, prefix="/api/worker", tags=["worker"])
+app.include_router(system.router, prefix="/api/v1/system", tags=["system"])

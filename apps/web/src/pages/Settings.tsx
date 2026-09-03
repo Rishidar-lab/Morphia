@@ -1,371 +1,196 @@
-import {
-  useEffect,
-  useId,
-  useState,
-  cloneElement,
-  isValidElement,
-  type ReactElement,
-  type ReactNode,
-} from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { api, ApiError } from "@/lib/api";
+import type { HealthCheck, HealthState, SystemStatus } from "@/lib/types";
+import { LoadingSkeleton, ErrorState } from "@/components/ListStates";
 
-interface GeneralSettings {
-  organization_name: string;
-  timezone: string;
-  default_project_status: string;
-}
-
-interface SecuritySettings {
-  session_timeout_minutes: number;
-  require_mfa: boolean;
-  password_min_length: number;
-}
-
-interface ProviderSettings {
-  default_model_provider: string;
-  default_model: string;
-  max_run_cost_usd: number;
-}
-
-interface StorageSettings {
-  evidence_bucket: string;
-  retention_days: number;
-}
-
-interface WorkerSettings {
-  max_concurrent_runs: number;
-  queue_backend: string;
-}
-
-const DEFAULTS = {
-  general: {
-    organization_name: "MORPHIA Research",
-    timezone: "UTC",
-    default_project_status: "active",
-  } as GeneralSettings,
-  security: {
-    session_timeout_minutes: 60,
-    require_mfa: false,
-    password_min_length: 8,
-  } as SecuritySettings,
-  provider: {
-    default_model_provider: "anthropic",
-    default_model: "claude-sonnet",
-    max_run_cost_usd: 25,
-  } as ProviderSettings,
-  storage: {
-    evidence_bucket: "morphia-evidence",
-    retention_days: 365,
-  } as StorageSettings,
-  worker: {
-    max_concurrent_runs: 5,
-    queue_backend: "redis",
-  } as WorkerSettings,
+const HEALTH_STYLE: Record<HealthState, string> = {
+  ok: "bg-green-500/10 text-green-300 border-green-500/30",
+  degraded: "bg-red-500/10 text-red-300 border-red-500/30",
+  unknown: "bg-amber-500/10 text-amber-300 border-amber-500/30",
 };
 
-function SettingsSection<T>({
-  title,
+const HEALTH_LABEL: Record<HealthState, string> = {
+  ok: "Operational",
+  degraded: "Degraded",
+  unknown: "Unknown",
+};
+
+function ServiceCard({
+  name,
   description,
-  endpoint,
-  defaults,
-  children,
+  check,
+  extra,
 }: {
-  title: string;
+  name: string;
   description: string;
-  endpoint: string;
-  defaults: T;
-  children: (value: T, setValue: (v: T) => void) => ReactNode;
+  check: HealthCheck;
+  extra?: string;
 }) {
-  const { data } = useQuery({
-    queryKey: ["settings", endpoint],
-    queryFn: () => api.get<T>(endpoint),
+  return (
+    <div className="bg-[var(--bg-panel)] border border-[var(--border-default)] rounded-[6px] p-4">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold text-[var(--text-primary)]">{name}</h2>
+        <span
+          className={
+            "text-[11px] px-2 py-0.5 rounded-full border whitespace-nowrap " +
+            HEALTH_STYLE[check.status]
+          }
+        >
+          {HEALTH_LABEL[check.status]}
+        </span>
+      </div>
+      <p className="text-xs text-[var(--text-faint)] mt-1">{description}</p>
+      <p className="mono text-[11px] mt-2 text-[var(--text-muted)]">
+        {extra ?? check.detail}
+      </p>
+    </div>
+  );
+}
+
+function ConfigRow({ label, value, mono = true }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-4 py-2 border-b border-[var(--border-subtle)] last:border-0">
+      <span className="text-xs text-[var(--text-muted)]">{label}</span>
+      <span
+        className={`text-xs text-[var(--text-secondary)] text-right break-all ${mono ? "mono" : ""}`}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
+export default function Settings() {
+  const {
+    data: status,
+    isLoading,
+    isError,
+    error,
+    refetch,
+    dataUpdatedAt,
+  } = useQuery({
+    queryKey: ["system-status"],
+    queryFn: () => api.get<SystemStatus>("/api/v1/system/status"),
+    refetchInterval: 30_000,
     retry: false,
   });
 
-  const [value, setValue] = useState<T>(defaults);
-  const [saved, setSaved] = useState(false);
-
-  // Sync server config into local editable state once it arrives, without
-  // clobbering in-progress edits on every background refetch.
-  useEffect(() => {
-    if (data) setValue(data);
-  }, [data]);
-
-  const mutation = useMutation({
-    mutationFn: (body: T) => api.put<T>(endpoint, body),
-    onSuccess: () => {
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2500);
-    },
-  });
-
-  return (
-    <div className="bg-[var(--bg-panel)] border border-[var(--border-default)] rounded-[6px] p-5">
-      <h2 className="text-sm font-semibold text-[var(--text-primary)]">{title}</h2>
-      <p className="text-xs text-[var(--text-faint)] mt-1 mb-4">{description}</p>
-
-      <div className="space-y-3">{children(value, setValue)}</div>
-
-      {mutation.isError && (
-        <div className="mt-4 bg-red-500/10 border border-red-500/30 text-red-400 text-sm px-3 py-2 rounded-md">
-          {mutation.error instanceof ApiError
-            ? mutation.error.message
-            : "Failed to save — this section is not yet wired to a live config store, showing defaults."}
-        </div>
-      )}
-
-      <div className="flex items-center gap-3 mt-4">
-        <button
-          onClick={() => mutation.mutate(value)}
-          disabled={mutation.isPending}
-          className="px-3.5 py-1.5 text-sm font-medium rounded-md bg-[var(--text-primary)] hover:opacity-90 disabled:bg-blue-800 disabled:cursor-not-allowed text-white transition-colors"
-        >
-          {mutation.isPending ? "Saving..." : "Save Changes"}
-        </button>
-        {saved && <span className="text-xs text-green-400">Saved.</span>}
-      </div>
-    </div>
-  );
-}
-
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: ReactNode;
-}) {
-  const id = useId();
-  // Inject the generated id into the field's control so the <label> below
-  // is actually associated with it (via htmlFor) — previously the label
-  // had no htmlFor and wasn't wrapping the control either, so screen
-  // readers had no way to connect "Organization Name" to its input.
-  const control = isValidElement(children)
-    ? cloneElement(children as ReactElement<{ id?: string }>, { id })
-    : children;
-
-  return (
-    <div className="grid grid-cols-3 items-center gap-3">
-      <label htmlFor={id} className="text-xs text-[var(--text-muted)] col-span-1">
-        {label}
-      </label>
-      <div className="col-span-2">{control}</div>
-    </div>
-  );
-}
-
-const inputClass =
-  "w-full bg-[var(--bg-inset)] border border-[var(--border-default)] rounded-md px-3 py-1.5 text-sm text-[var(--text-primary)] focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500";
-
-export default function Settings() {
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-[var(--text-primary)]">Settings</h1>
-        <p className="text-sm text-[var(--text-faint)] mt-1">Organization-wide configuration</p>
+      <div className="flex items-start justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-[var(--text-primary)]">System</h1>
+          <p className="text-sm text-[var(--text-faint)] mt-1">
+            Live service health and non-secret configuration
+          </p>
+        </div>
+        {status && (
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <span
+              className="text-[11px] mono px-2 py-1 rounded border border-[var(--border-default)] text-[var(--text-muted)]"
+              data-testid="system-version"
+            >
+              v{status.version}
+            </span>
+            <span className="text-[11px] px-2 py-1 rounded border border-blue-500/30 bg-blue-500/10 text-[var(--active)]">
+              {status.environment}
+            </span>
+            <button
+              onClick={() => refetch()}
+              className="text-[11px] px-2 py-1 rounded border border-[var(--border-default)] text-[var(--text-secondary)] hover:bg-gray-800 transition-colors"
+            >
+              Refresh
+            </button>
+          </div>
+        )}
       </div>
 
-      <div className="space-y-6 max-w-3xl">
-        <SettingsSection
-          title="General"
-          description="Basic organization identity and defaults."
-          endpoint="/api/v1/settings/general"
-          defaults={DEFAULTS.general}
-        >
-          {(value, setValue) => (
-            <>
-              <Field label="Organization Name">
-                <input
-                  className={inputClass}
-                  value={value.organization_name}
-                  onChange={(e) =>
-                    setValue({ ...value, organization_name: e.target.value })
-                  }
-                />
-              </Field>
-              <Field label="Timezone">
-                <input
-                  className={inputClass}
-                  value={value.timezone}
-                  onChange={(e) => setValue({ ...value, timezone: e.target.value })}
-                />
-              </Field>
-              <Field label="Default Project Status">
-                <select
-                  className={inputClass}
-                  value={value.default_project_status}
-                  onChange={(e) =>
-                    setValue({ ...value, default_project_status: e.target.value })
-                  }
-                >
-                  <option value="active">Active</option>
-                  <option value="archived">Archived</option>
-                </select>
-              </Field>
-            </>
-          )}
-        </SettingsSection>
+      {isLoading && <LoadingSkeleton rows={4} />}
 
-        <SettingsSection
-          title="Security"
-          description="Session handling and authentication policy."
-          endpoint="/api/v1/settings/security"
-          defaults={DEFAULTS.security}
-        >
-          {(value, setValue) => (
-            <>
-              <Field label="Session Timeout (min)">
-                <input
-                  type="number"
-                  min={5}
-                  className={inputClass}
-                  value={value.session_timeout_minutes}
-                  onChange={(e) =>
-                    setValue({
-                      ...value,
-                      session_timeout_minutes: Number(e.target.value),
-                    })
-                  }
-                />
-              </Field>
-              <Field label="Require MFA">
-                <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
-                  <input
-                    type="checkbox"
-                    checked={value.require_mfa}
-                    onChange={(e) =>
-                      setValue({ ...value, require_mfa: e.target.checked })
-                    }
-                    className="rounded border-[var(--border-default)] bg-[var(--bg-inset)] text-blue-500 focus:ring-blue-500"
-                  />
-                  Enabled
-                </label>
-              </Field>
-              <Field label="Password Min Length">
-                <input
-                  type="number"
-                  min={8}
-                  className={inputClass}
-                  value={value.password_min_length}
-                  onChange={(e) =>
-                    setValue({ ...value, password_min_length: Number(e.target.value) })
-                  }
-                />
-              </Field>
-            </>
-          )}
-        </SettingsSection>
+      {isError && (
+        <ErrorState
+          message={error instanceof ApiError ? error.message : "Failed to load system status."}
+          onRetry={() => refetch()}
+        />
+      )}
 
-        <SettingsSection
-          title="Provider Configuration"
-          description="Default model provider and per-run cost ceiling for agentic runs."
-          endpoint="/api/v1/settings/providers"
-          defaults={DEFAULTS.provider}
-        >
-          {(value, setValue) => (
-            <>
-              <Field label="Model Provider">
-                <select
-                  className={inputClass}
-                  value={value.default_model_provider}
-                  onChange={(e) =>
-                    setValue({ ...value, default_model_provider: e.target.value })
-                  }
-                >
-                  <option value="anthropic">Anthropic</option>
-                  <option value="openai">OpenAI</option>
-                  <option value="local">Local / Self-hosted</option>
-                </select>
-              </Field>
-              <Field label="Default Model">
-                <input
-                  className={inputClass}
-                  value={value.default_model}
-                  onChange={(e) => setValue({ ...value, default_model: e.target.value })}
-                />
-              </Field>
-              <Field label="Max Run Cost (USD)">
-                <input
-                  type="number"
-                  min={0}
-                  step={0.5}
-                  className={inputClass}
-                  value={value.max_run_cost_usd}
-                  onChange={(e) =>
-                    setValue({ ...value, max_run_cost_usd: Number(e.target.value) })
-                  }
-                />
-              </Field>
-            </>
-          )}
-        </SettingsSection>
+      {status && (
+        <div data-testid="system-status">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            <ServiceCard
+              name="API"
+              description="FastAPI process serving this page"
+              check={{ status: "ok", detail: "serving" }}
+              extra={`responded just now · request checked ${new Date(dataUpdatedAt).toLocaleTimeString()}`}
+            />
+            <ServiceCard
+              name="Database"
+              description="PostgreSQL system of record"
+              check={status.database}
+            />
+            <ServiceCard name="Queue" description="Redis job queue + heartbeats" check={status.redis} />
+            <ServiceCard
+              name="Worker"
+              description="Background execution (Redis heartbeat)"
+              check={status.worker}
+            />
+            <ServiceCard
+              name="Migrations"
+              description="Alembic schema revision"
+              check={status.migration}
+              extra={`revision ${status.migration.detail}`}
+            />
+            <ServiceCard
+              name="Provider"
+              description="Model provider for run steps"
+              check={{ status: "ok", detail: status.provider }}
+              extra={`${status.provider} · selection is process-wide, not per-run`}
+            />
+          </div>
 
-        <SettingsSection
-          title="Storage"
-          description="Evidence artifact storage and retention policy."
-          endpoint="/api/v1/settings/storage"
-          defaults={DEFAULTS.storage}
-        >
-          {(value, setValue) => (
-            <>
-              <Field label="Evidence Bucket">
-                <input
-                  className={inputClass}
-                  value={value.evidence_bucket}
-                  onChange={(e) =>
-                    setValue({ ...value, evidence_bucket: e.target.value })
-                  }
-                />
-              </Field>
-              <Field label="Retention (days)">
-                <input
-                  type="number"
-                  min={1}
-                  className={inputClass}
-                  value={value.retention_days}
-                  onChange={(e) =>
-                    setValue({ ...value, retention_days: Number(e.target.value) })
-                  }
-                />
-              </Field>
-            </>
-          )}
-        </SettingsSection>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+            <div className="bg-[var(--bg-panel)] border border-[var(--border-default)] rounded-[6px] p-4">
+              <h2 className="text-sm font-semibold text-[var(--text-primary)]">Configuration</h2>
+              <p className="text-xs text-[var(--text-faint)] mt-1 mb-2">
+                Non-secret values only. Secrets are environment-only and never exposed here.
+              </p>
+              <ConfigRow label="Environment" value={status.environment} />
+              <ConfigRow label="Version" value={status.version} />
+              <ConfigRow label="Storage backend" value={status.storage_backend} />
+              <ConfigRow label="Model provider" value={status.provider} />
+              <ConfigRow
+                label="Session lifetime"
+                value={`${status.session_lifetime_hours} hours`}
+              />
+              <ConfigRow label="Debug mode" value={status.debug ? "enabled" : "disabled"} />
+            </div>
 
-        <SettingsSection
-          title="Worker"
-          description="Background execution capacity for run orchestration."
-          endpoint="/api/v1/settings/worker"
-          defaults={DEFAULTS.worker}
-        >
-          {(value, setValue) => (
-            <>
-              <Field label="Max Concurrent Runs">
-                <input
-                  type="number"
-                  min={1}
-                  className={inputClass}
-                  value={value.max_concurrent_runs}
-                  onChange={(e) =>
-                    setValue({ ...value, max_concurrent_runs: Number(e.target.value) })
-                  }
-                />
-              </Field>
-              <Field label="Queue Backend">
-                <select
-                  className={inputClass}
-                  value={value.queue_backend}
-                  onChange={(e) => setValue({ ...value, queue_backend: e.target.value })}
-                >
-                  <option value="redis">Redis</option>
-                  <option value="sqs">Amazon SQS</option>
-                </select>
-              </Field>
-            </>
-          )}
-        </SettingsSection>
-      </div>
+            <div className="bg-[var(--bg-panel)] border border-[var(--border-default)] rounded-[6px] p-4">
+              <h2 className="text-sm font-semibold text-[var(--text-primary)]">
+                Enforcement posture
+              </h2>
+              <p className="text-xs text-[var(--text-faint)] mt-1 mb-2">
+                Live controls, not documentation promises.
+              </p>
+              <ConfigRow label="Scope validation" value="default-deny · API + worker" mono={false} />
+              <ConfigRow label="Approval gate" value="human decision required" mono={false} />
+              <ConfigRow
+                label="Self-approval"
+                value="justified + flagged in audit trail"
+                mono={false}
+              />
+              <ConfigRow label="Evidence integrity" value="SHA-256 at capture" mono={false} />
+              <ConfigRow label="Upload validation" value="size + type + signature" mono={false} />
+              <ConfigRow label="Audit trail" value="append-only" mono={false} />
+            </div>
+          </div>
+
+          <p className="mono text-[11px] mt-4" style={{ color: "var(--text-faint)" }}>
+            checked at {new Date(status.checked_at).toLocaleString()} · API keys, worker
+            secrets, database credentials, and session secrets are never rendered.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

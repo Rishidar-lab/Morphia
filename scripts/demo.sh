@@ -161,7 +161,7 @@ journey() {
       | python3 -c "import sys,json;print(json.load(sys.stdin)['id'])")
     curl -fsS "${H[@]}" -X POST "$API/api/v1/runs/$r/transition" -d '{"target_state":"PLANNING"}' >/dev/null
     curl -fsS "${H[@]}" -X POST "$API/api/v1/runs/$r/transition" -d '{"target_state":"AWAITING_PLAN_APPROVAL"}' >/dev/null
-    curl -fsS "${H[@]}" -X POST "$API/api/v1/runs/$r/approve" -d '{"justification":"demo"}' >/dev/null
+    curl -fsS "${H[@]}" -X POST "$API/api/v1/runs/$r/approve" -d '{"justification":"demo journey approval: authorized synthetic target"}' >/dev/null
     for _ in $(seq 1 25); do
       st=$(curl -fsS -b "$jar" "$API/api/v1/runs/$r" | python3 -c "import sys,json;print(json.load(sys.stdin)['state'])")
       [[ "$st" == "COMPLETED" || "$st" == "FAILED" ]] && break

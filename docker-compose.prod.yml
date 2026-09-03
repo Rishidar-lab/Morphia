@@ -1,0 +1,188 @@
+# Production-oriented Docker Compose for the MORPHIA hosted MVP.
+#
+# Design goals
+#   * 100% environment-variable config (see infra/deployment/.env.example)
+#   * Strong, generated secrets — no committed passwords
+#   * No bind mounts, no source-tree dependencies, no dev credentials
+#   * Only the reverse proxy and the in-cluster demo target are publicly
+#     reachable. Postgres, Redis, the API, and the worker are internal-only.
+#   * Healthchecks + restart policies for every long-running service
+#   * One-shot migration service that runs `alembic upgrade head` before
+#     the API starts serving traffic
+#
+# Bring it up (from the repository root):
+#   ./scripts/prod-up.sh                       # generate secrets + start
+#   ./scripts/prod-up.sh --reset               # wipe volumes + reseed
+#
+# Then terminate TLS at the edge with Caddy (see infra/caddy/Caddyfile).
+
+name: morphia-prod
+
+x-common: &common
+  restart: unless-stopped
+  logging: &logging
+    driver: json-file
+    options: { max-size: "10m", max-file: "5" }
+
+services:
+  postgres:
+    <<: *common
+    image: postgres:16-alpine
+    environment: &db-env
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    # Internal-only — no ports published.
+    expose: ["5432"]
+    networks: [internal]
+
+  redis:
+    <<: *common
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    expose: ["6379"]
+    networks: [internal]
+
+  api:
+    <<: *common
+    build:
+      context: .
+      dockerfile: infra/docker/api.Dockerfile
+    image: morphia-api:0.2.0-mvp
+    env_file: infra/deployment/.env
+    environment:
+      ENVIRONMENT: production
+      DEBUG: "false"
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      DATABASE_URL_SYNC: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379/0
+      FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL is required}
+      ALLOWED_ORIGINS: ${FRONTEND_URL:?ALLOWED_ORIGINS is required}
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/ready').status==200 else 1)
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    expose: ["8000"]
+    networks: [internal, edge]
+    # Production secrets, evidence, and any S3 mounts belong here.
+    volumes:
+      - evidence:/app/storage
+
+  worker:
+    <<: *common
+    build:
+      context: .
+      dockerfile: infra/docker/worker.Dockerfile
+    image: morphia-worker:0.2.0-mvp
+    env_file: infra/deployment/.env
+    environment:
+      ENVIRONMENT: production
+      API_BASE_URL: http://api:8000
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      api: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - python -c "import os,sys; ps=[p for p in os.listdir('/proc') if p.isdigit()]; sys.exit(0 if any('app.main' in open(f'/proc/{p}/cmdline').read() for p in ps) else 1)"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks: [internal]
+    volumes:
+      - evidence:/app/storage
+
+  migrate:
+    build:
+      context: .
+      dockerfile: infra/docker/api.Dockerfile
+    image: morphia-api:0.2.0-mvp
+    env_file: infra/deployment/.env
+    environment:
+      ENVIRONMENT: production
+      DEBUG: "false"
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      DATABASE_URL_SYNC: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    entrypoint: ["python", "-m", "alembic", "-c", "/app/apps/api/alembic.ini", "upgrade", "head"]
+    working_dir: /app/apps/api
+    depends_on:
+      postgres: { condition: service_healthy }
+    networks: [internal]
+    restart: "no"
+
+  web:
+    <<: *common
+    build:
+      context: .
+      dockerfile: infra/docker/web.Dockerfile
+    image: morphia-web:0.2.0-mvp
+    environment:
+      # The web container is served by Caddy; this Vite preview listens
+      # internally and Caddy reverse-proxies `/` and `/api/*` to it.
+      API_PROXY_TARGET: http://api:8000
+    depends_on:
+      api: { condition: service_healthy }
+    networks: [edge, internal]
+    # Not published directly — only reachable through Caddy on :80/:443.
+
+  caddy:
+    <<: *common
+    image: caddy:2-alpine
+    command: ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "native"]
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ../infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+      - caddyconfig:/config
+    depends_on:
+      api: { condition: service_healthy }
+      web: { condition: service_started }
+    networks: [edge]
+
+  demo-target:
+    <<: *common
+    build:
+      context: .
+      dockerfile: infra/docker/demo-target.Dockerfile
+    networks: [edge, internal]
+    # Internal-only — the demo target is not exposed to the internet; the
+    # API and worker reach it over the internal network only.
+
+volumes:
+  pgdata:
+  redisdata:
+  evidence:
+  caddydata:
+  caddyconfig:
+
+networks:
+  edge:
+  internal:

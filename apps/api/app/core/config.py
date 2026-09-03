@@ -1,7 +1,11 @@
 """Application configuration loaded from environment variables."""
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings
+
+APP_VERSION = "0.2.0-mvp"
+
+_PLACEHOLDER_MARKERS = ("change-me", "changeme", "placeholder", "example", "test-only")
 
 
 class Settings(BaseSettings):
@@ -40,9 +44,36 @@ class Settings(BaseSettings):
     # Worker
     worker_auth_secret: str = Field(default="", alias="WORKER_AUTH_SECRET")
 
+    # Evidence uploads
+    evidence_max_upload_bytes: int = Field(
+        default=10 * 1024 * 1024, alias="EVIDENCE_MAX_UPLOAD_BYTES"
+    )
+
     # Testing — NEVER set in production
     enable_e2e_auth_override: bool = Field(default=False, alias="ENABLE_E2E_AUTH_OVERRIDE")
     test_owner_email: str = Field(default="", alias="TEST_OWNER_EMAIL")
+
+    @model_validator(mode="after")
+    def _fail_closed_in_production(self) -> "Settings":
+        """Refuse insecure production defaults instead of booting compromised."""
+        if self.environment != "production":
+            return self
+        problems: list[str] = []
+        lowered_secret = (self.secret_key or "").lower()
+        if len(self.secret_key) < 32 or any(m in lowered_secret for m in _PLACEHOLDER_MARKERS):
+            problems.append("SECRET_KEY must be a generated value at least 32 chars long")
+        lowered_worker = (self.worker_auth_secret or "").lower()
+        if len(self.worker_auth_secret) < 16 or any(
+            m in lowered_worker for m in _PLACEHOLDER_MARKERS
+        ):
+            problems.append("WORKER_AUTH_SECRET must be a generated value at least 16 chars long")
+        if self.debug:
+            problems.append("DEBUG must be false in production")
+        if self.enable_e2e_auth_override:
+            problems.append("ENABLE_E2E_AUTH_OVERRIDE must not be set in production")
+        if problems:
+            raise ValueError("insecure production configuration: " + "; ".join(problems))
+        return self
 
     @property
     def cors_origins(self) -> list[str]:

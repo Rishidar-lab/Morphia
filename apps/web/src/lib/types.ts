@@ -336,6 +336,28 @@ export interface DashboardSummary {
   reports: number;
 }
 
+// ── System status (GET /api/v1/system/status — no secret material) ──
+export type HealthState = "ok" | "degraded" | "unknown";
+
+export interface HealthCheck {
+  status: HealthState;
+  detail: string;
+}
+
+export interface SystemStatus {
+  version: string;
+  environment: string;
+  debug: boolean;
+  provider: string;
+  storage_backend: string;
+  session_lifetime_hours: number;
+  database: HealthCheck;
+  redis: HealthCheck;
+  worker: HealthCheck;
+  migration: HealthCheck;
+  checked_at: string;
+}
+
 // ── Agent Profiles ───────────────────────────────────────
 export type ApprovalLevel = "none" | "plan_only" | "action_level" | "full";
 

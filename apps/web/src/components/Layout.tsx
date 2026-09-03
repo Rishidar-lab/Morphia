@@ -42,6 +42,7 @@ const navSections: NavSection[] = [
       { to: "/audit", label: "Audit Log", icon: "◎" },
       { to: "/agents", label: "Agents", icon: "◈" },
       { to: "/workflows", label: "Workflows", icon: "⬢" },
+      { to: "/settings", label: "System", icon: "⬣" },
     ],
   },
 ];
@@ -56,6 +57,7 @@ export function Layout() {
     getCurrentUser() ? "authed" : "checking",
   );
   const [user, setUser] = useState<User | null>(getCurrentUser());
+  const [navOpen, setNavOpen] = useState(false);
 
   useEffect(() => {
     setUnauthorizedHandler(() => {
@@ -88,6 +90,11 @@ export function Layout() {
     };
   }, [navigate]);
 
+  // Close the mobile drawer on navigation.
+  useEffect(() => {
+    setNavOpen(false);
+  }, [location.pathname]);
+
   const handleLogout = async () => {
     await logout();
     queryClient.clear();
@@ -101,9 +108,20 @@ export function Layout() {
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: "var(--bg-0)" }}>
+      {/* ── Mobile scrim ──────────────────────────────────────── */}
+      {navOpen && (
+        <button
+          aria-label="Close navigation"
+          onClick={() => setNavOpen(false)}
+          className="fixed inset-0 z-30 bg-black/60 lg:hidden"
+        />
+      )}
       {/* ── Left rail ─────────────────────────────────────────────── */}
       <aside
-        className="w-[224px] flex-shrink-0 flex flex-col select-none"
+        data-testid="app-sidebar"
+        className={`fixed z-40 flex h-full w-[224px] flex-shrink-0 flex-col select-none transition-transform duration-200 lg:static lg:z-auto lg:translate-x-0 ${
+          navOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        } ${navOpen ? "flex" : "hidden lg:flex"}`}
         style={{
           background: "var(--bg-1)",
           borderRight: "1px solid var(--border-default)",
@@ -115,8 +133,7 @@ export function Layout() {
           style={{ borderBottom: "1px solid var(--border-subtle)" }}
         >
           <div className="flex items-baseline gap-2">
-            <span className="text-[16px] font-bold tracking-[0.18em] text-[#e6ebf5]">MORPHIA</span>
-            <span
+            <span className="text-[16px] font-bold tracking-[0.18em] text-[#e6ebf5]">MORPHIA</span>            <span
               className="text-[9px] font-medium tracking-[0.12em] px-1.5 py-0.5 rounded"
               style={{
                 background: "rgba(16,185,129,0.12)",
@@ -217,8 +234,17 @@ export function Layout() {
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Top rule */}
         <div className="h-7 flex-shrink-0 flex items-center justify-between px-4 text-[11px]" style={{ background: "var(--bg-1)", borderBottom: "1px solid var(--border-subtle)", color: "var(--text-faint)" }}>
-          <span className="mono tracking-wide">
-            AUTHORIZATION BOUNDARY ENFORCED · DUAL VALIDATION · AUDIT TRAIL ACTIVE
+          <span className="flex items-center gap-2 min-w-0">
+            <button
+              aria-label="Open navigation"
+              onClick={() => setNavOpen(true)}
+              className="lg:hidden px-1.5 py-0.5 rounded border border-[var(--border-subtle)] text-[var(--text-secondary)]"
+            >
+              ☰
+            </button>
+            <span className="mono tracking-wide truncate">
+              AUTHORIZATION BOUNDARY ENFORCED · DUAL VALIDATION · AUDIT TRAIL ACTIVE
+            </span>
           </span>
           <span className="hidden sm:inline mono">
             {new Date().toISOString().slice(0, 10)} · {user?.email}

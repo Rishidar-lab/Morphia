@@ -1,0 +1,47 @@
+# Reverse proxy configuration for the MORPHIA hosted MVP.
+#
+# Caddy terminates TLS on :443 and routes:
+#   /api/*   -> api:8000      (FastAPI behind a session cookie + CSRF)
+#   /        -> web:3000      (Vite static build served by the preview server)
+#   /healthz -> 200 OK        (Caddy-level health for the load balancer)
+#
+# Two ways to use this file:
+#   1. Public hostname: replace {$MORPHIA_DOMAIN} with a real domain you own
+#      and point its A/AAAA records at this host; Caddy requests a Let's
+#      Encrypt cert automatically.
+#   2. Tailnet-only: set MORPHIA_DOMAIN=cypherdome.tail-net.ts.net
+#      and have Caddy issue an internal cert via Tailscale's cert
+#      provisioning (requires HTTPS cert support enabled in the tailnet).
+
+{$MORPHIA_DOMAIN:localhost}
+
+encode zstd gzip
+header {
+    # Hardening — defense in depth at the edge.
+    X-Content-Type-Options "nosniff"
+    Referrer-Policy "same-origin"
+    X-Frame-Options "DENY"
+    Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    -Server
+}
+
+@api path /api/*
+handle @api {
+    reverse_proxy api:8000 {
+        header_up X-Forwarded-Proto {scheme}
+        header_up X-Forwarded-Host {host}
+        header_up X-Real-IP {remote_host}
+    }
+}
+
+@health path /healthz
+handle @health {
+    respond "ok" 200
+}
+
+handle {
+    reverse_proxy web:3000 {
+        header_up X-Forwarded-Proto {scheme}
+        header_up X-Forwarded-Host {host}
+    }
+}

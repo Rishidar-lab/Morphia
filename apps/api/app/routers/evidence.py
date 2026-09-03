@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.database import get_db
 from app.middleware.rbac import Role, require_role
 from app.models.audit import AuditEvent, AuditEventType
@@ -15,6 +16,7 @@ from app.models.auth import User
 from app.models.domain import Project
 from app.models.evidence import EVIDENCE_VERIFICATION_STATUSES, EvidenceArtifact
 from app.routers.auth import get_current_user
+from app.services.evidence_upload import UploadValidationError, sanitize_filename, validate_upload
 from app.services.storage import get_storage_backend
 
 router = APIRouter()
@@ -90,7 +92,7 @@ async def _get_evidence_with_ownership(
 
 
 def _storage_path(project_id: str, evidence_id: str, filename: str) -> str:
-    safe_name = filename.replace("/", "_").replace("\\", "_") or "artifact.bin"
+    safe_name = sanitize_filename(filename)
     return f"evidence/{project_id}/{evidence_id}/{safe_name}"
 
 
@@ -113,6 +115,12 @@ async def upload_evidence(
     await _get_owned_project(project_id, user, db)
 
     data = await file.read()
+    try:
+        safe_filename, stored_content_type = validate_upload(
+            file.filename, file.content_type, data, limit=get_settings().evidence_max_upload_bytes
+        )
+    except UploadValidationError as e:
+        raise HTTPException(status_code=getattr(e, "status_code", 422), detail=str(e)) from None
     digest = hashlib.sha256(data).hexdigest()
 
     parsed_acquisition_timestamp: datetime | None = None
@@ -132,8 +140,8 @@ async def upload_evidence(
         creator_id=user.id,
         source=source,
         acquisition_timestamp=parsed_acquisition_timestamp,
-        content_type=file.content_type or "application/octet-stream",
-        original_filename=file.filename or "artifact.bin",
+        content_type=stored_content_type,
+        original_filename=safe_filename,
         file_size=len(data),
         sha256_digest=digest,
         sensitivity=sensitivity,

@@ -12,6 +12,7 @@ from app.models.audit import AuditEvent, AuditEventType
 from app.models.auth import User
 from app.models.domain import Engagement, Project, ScopeRule
 from app.routers.auth import get_current_user
+from app.services.target_safety import prohibited_scope_pattern_reason
 
 router = APIRouter()
 
@@ -80,6 +81,11 @@ async def create_scope_rule(
 ) -> ScopeRule:
     """Create a scope rule within an engagement. Verifies ownership chain."""
     await _get_engagement_with_ownership(engagement_id, user, db)
+
+    if body.rule_type == "include":
+        unsafe = prohibited_scope_pattern_reason(body.pattern)
+        if unsafe is not None:
+            raise HTTPException(status_code=422, detail=unsafe)
 
     scope_rule = ScopeRule(
         engagement_id=engagement_id,
