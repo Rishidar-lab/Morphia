@@ -69,11 +69,12 @@ the "how I actually debug something" artifact referenced by
      --quiet`.
 - **Expected result:** Validates silently (the file's own header comment
   says "Bring it up from the repository root").
-- **Actual result:** The `configs.caddyfile.file` key was
-  `/home/parzival/morphia-work/Morphia/infra/caddy/Caddyfile` — a literal
-  absolute path baked into version control. On any other machine, or the
-  same machine with the repo cloned to a different directory, Compose fails
-  to locate the file.
+- **Actual result:** The `configs.caddyfile.file` key was a literal absolute
+  path baked into version control — of the shape
+  `/home/<developer>/morphia-work/Morphia/infra/caddy/Caddyfile` (redacted
+  here; the original commit had one specific developer's home directory
+  hardcoded in). On any other machine, or the same machine with the repo
+  cloned to a different directory, Compose fails to locate the file.
 - **Root cause:** The path was written as an absolute path instead of one
   relative to the Compose file's own directory, most likely pasted in
   directly during initial authoring of the production Compose file rather

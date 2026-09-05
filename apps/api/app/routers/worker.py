@@ -64,6 +64,7 @@ class ClaimResponse(BaseModel):
     target: str | None = None
     prompt: str | None = None
     agent_profile: str | None = None
+    tool: str | None = None
 
 
 class SubmitStepRequest(BaseModel):
@@ -169,6 +170,8 @@ async def claim_run(
     step_def = plan_steps[completed_count]
     target = str(step_def.get("target", ""))
     action = str(step_def.get("action", ""))
+    tool_raw = step_def.get("tool")
+    tool = str(tool_raw) if tool_raw else None
     step_number = completed_count + 1
 
     scope_result = await ScopeValidator(db).validate_target(
@@ -209,7 +212,7 @@ async def claim_run(
         None,
         None,
         body.worker_id,
-        payload={"step_number": step_number, "target": target, "action": action},
+        payload={"step_number": step_number, "target": target, "action": action, "tool": tool},
     )
 
     return ClaimResponse(
@@ -221,6 +224,7 @@ async def claim_run(
         target=target,
         prompt=str(step_def.get("prompt", "")),
         agent_profile=run.agent_profile,
+        tool=tool,
     )
 
 
