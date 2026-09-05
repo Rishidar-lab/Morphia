@@ -12,7 +12,7 @@ with an append-only audit trail spanning the whole chain. Nothing executes merel
 
 ![MORPHIA Operations Canvas](docs/assets/screenshots/operations.png)
 
-> **Status: v0.2.0-alpha — Operations Intelligence Interface.** The end-to-end journey works against a live stack and is covered by service-backed integration tests and a browser E2E suite (see `docs/mvp-verification.md`). It is not production-hardened — see [Limitations](#limitations). v0.1 history intact; redesign documented in `docs/releases/v0.2.0-alpha.md`.
+> **Status: v0.2.1 — Hosted MVP.** The end-to-end journey works against a live stack — verified from a completely fresh `docker compose down -v && up --build`, not just a warm re-run — and is covered by service-backed integration tests and a 6-spec browser E2E suite (see `docs/mvp-verification.md`). It is not production-hardened for multi-tenant use — see [Limitations](#limitations). Full release notes, including real bugs found and fixed in this pass: `docs/releases/v0.2.1-hosted-mvp.md`.
 
 ---
 
@@ -193,14 +193,22 @@ quality + build, Docker image build, a **service-backed integration** job
 (compose up → migrate → seed → live journey → scope proof), a **Playwright E2E**
 job (report uploaded as an artifact), and secret scanning.
 
-Current: 60 API + 8 worker + 37 web unit tests, 4 live Playwright tests — all
-green. Evidence matrix: `docs/mvp-verification.md`.
+Current: 130 API + 8 worker + 53 web unit tests, 6 live Playwright tests — all
+green, verified against a freshly built stack with a wiped database (not just
+re-run against a warm one). Evidence matrix: `docs/mvp-verification.md`.
+QA process docs (test plan, test cases, real bug reports found while
+verifying this project): `docs/qa/`.
 
 ## Project status
 
-**MVP / alpha** — [`v0.1.0-mvp`](docs/releases/v0.1.0-mvp.md). The journey in
-`docs/mvp-verification.md` is fully working and verified against a live stack.
-What was fixed to get here is itemised in `docs/mvp-gap-analysis.md`.
+**MVP / hosted-alpha** — [`v0.2.1`](docs/releases/v0.2.1-hosted-mvp.md), following
+[`v0.2.0-alpha`](docs/releases/v0.2.0-alpha.md) and
+[`v0.1.0-mvp`](docs/releases/v0.1.0-mvp.md). The journey in
+`docs/mvp-verification.md` is fully working and verified against a live,
+freshly-built stack. The full history of what was found and fixed to get
+here — including bugs found while auditing this exact repository for
+portfolio use — is in `docs/mvp-gap-analysis.md`, `docs/MVP_FINAL_AUDIT.md`,
+and `docs/qa/BUG_REPORTS.md`.
 
 ## Limitations
 
@@ -219,6 +227,22 @@ What was fixed to get here is itemised in `docs/mvp-gap-analysis.md`.
   empty.
 - **Backup/restore scripts exist but are unexercised.**
 - **Provider selection is process-wide**, not per-run.
+
+## For reviewers
+
+Three documents specifically written for someone evaluating this as a work
+sample, not for end users of the product:
+
+- [`HIRING_MANAGER_WALKTHROUGH.md`](HIRING_MANAGER_WALKTHROUGH.md) — a
+  60-second technical explanation: the problem, the architecture, the
+  hardest bug found while building this, and what was learned.
+- [`INTERVIEW_PREP.md`](INTERVIEW_PREP.md) — 20 realistic questions about
+  this specific codebase with accurate answers, including two real,
+  previously-undiscovered bugs found and fixed while auditing this
+  repository (not hypothetical examples).
+- [`docs/qa/`](docs/qa/) — a test plan, a representative test-case catalog,
+  and full bug reports (repro steps, root cause, fix, regression test) for
+  every defect referenced above.
 
 ## Roadmap
 
