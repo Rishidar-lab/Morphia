@@ -1,3 +1,19 @@
+# ── dev stage ────────────────────────────────────────────
+# Used by docker-compose.yml, which bind-mounts apps/web over /app at
+# runtime for hot reload. Only node_modules needs to be baked into the
+# image — the source is supplied by the bind mount, not COPY.
+FROM node:22-alpine AS dev
+
+WORKDIR /app
+
+COPY apps/web/package.json apps/web/package-lock.json* ./
+RUN npm ci
+
+EXPOSE 5173
+
+CMD ["npx", "vite", "--host", "0.0.0.0", "--port", "5173"]
+
+# ── builder stage ────────────────────────────────────────
 FROM node:22-alpine AS builder
 
 WORKDIR /app

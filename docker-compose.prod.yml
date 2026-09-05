@@ -28,10 +28,12 @@ services:
   postgres:
     <<: *common
     image: postgres:16-alpine
+    env_file:
+      - infra/deployment/.env
     environment: &db-env
-      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_USER: ${POSTGRES_USER:-morphia}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
-      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+      POSTGRES_DB: ${POSTGRES_DB:-morphia}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -67,11 +69,11 @@ services:
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      DATABASE_URL_SYNC: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-morphia}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-morphia}
+      DATABASE_URL_SYNC: postgresql://${POSTGRES_USER:-morphia}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-morphia}
       REDIS_URL: redis://redis:6379/0
       FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL is required}
-      ALLOWED_ORIGINS: ${FRONTEND_URL:?ALLOWED_ORIGINS is required}
+      ALLOWED_ORIGINS: ${FRONTEND_URL:?FRONTEND_URL is required}
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
@@ -127,8 +129,8 @@ services:
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      DATABASE_URL_SYNC: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-morphia}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-morphia}
+      DATABASE_URL_SYNC: postgresql://${POSTGRES_USER:-morphia}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-morphia}
     entrypoint: ["python", "-m", "alembic", "-c", "/app/apps/api/alembic.ini", "upgrade", "head"]
     working_dir: /app/apps/api
     depends_on:
@@ -154,27 +156,28 @@ services:
   caddy:
     <<: *common
     image: caddy:2-alpine
-    command: ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "native"]
+    command: ["caddy", "run", "--config", "/etc/caddy/Caddyfile"]
     ports:
       - "80:80"
       - "443:443"
-    volumes:
-      - ../infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddydata:/data
-      - caddyconfig:/config
+    env_file: infra/deployment/.env
+    environment:
+      # tunnel (default) = serve :80 only, terminate TLS at the cloudflared
+      #                    edge. direct = let caddy obtain a real cert.
+      DEPLOY_MODE: ${DEPLOY_MODE:-tunnel}
+      MORPHIA_DOMAIN: ${MORPHIA_DOMAIN:-localhost}
+    configs:
+      - source: caddyfile
+        target: /etc/caddy/Caddyfile
     depends_on:
       api: { condition: service_healthy }
       web: { condition: service_started }
     networks: [edge]
 
-  demo-target:
-    <<: *common
-    build:
-      context: .
-      dockerfile: infra/docker/demo-target.Dockerfile
-    networks: [edge, internal]
-    # Internal-only — the demo target is not exposed to the internet; the
-    # API and worker reach it over the internal network only.
+configs:
+  caddyfile:
+    file: ./infra/caddy/Caddyfile
+
 
 volumes:
   pgdata:

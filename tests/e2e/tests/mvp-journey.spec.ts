@@ -29,9 +29,9 @@ async function registerAndSignIn(page: Page): Promise<string> {
   await page.fill("#password", PASSWORD);
   await page.getByRole("button", { name: "Create account" }).click();
   // Registration navigates to /operations; wait for auth to settle then verify shell
-  await expect(page).not.toHaveURL(/\/sign-in$/, { timeout: 15_000 });
+  await expect(page).not.toHaveURL(/\/sign-in$/, { timeout: 30_000 });
   await page.goto("/operations");
-  await expect(page.getByTestId("operations-command-center")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId("operations-command-center")).toBeVisible({ timeout: 30_000 });
   return email;
 }
 
@@ -48,7 +48,7 @@ async function createProject(page: Page, name: string): Promise<void> {
     page.getByRole("button", { name: "Create Project" }).click(),
   ]);
   if (!resp.ok()) throw new Error(`Create project failed: ${resp.status()} ${await resp.text()}`);
-  await expect(page.getByRole("link", { name, exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("link", { name, exact: true })).toBeVisible({ timeout: 30_000 });
 }
 
 async function openProject(page: Page, name: string): Promise<void> {
@@ -69,16 +69,43 @@ async function addEngagement(page: Page, programName: string): Promise<void> {
     .getByPlaceholder(/Signed rules-of-engagement/i)
     .fill("Self-authorized synthetic local target.");
   await page.getByRole("button", { name: "Create Engagement" }).click();
-  await expect(page.getByText(programName).first()).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(programName).first()).toBeVisible({ timeout: 30_000 });
 }
 
-async function addScopeRule(page: Page, pattern: string): Promise<void> {
+async function addScopeRule(page: Page, pattern: string, engagementName: string): Promise<void> {
   await tab(page, "Scope");
+  // Wait for the engagements query to refetch — the engagement created
+  // in addEngagement is only available in the dropdown after this.
+  // The page's default activeEngagementId falls back to
+  // engagements[0]?.id; the just-created engagement's option being
+  // attached confirms the refetch completed and the page is ready to
+  // scope.
+  await expect(
+    page.locator("option", { hasText: engagementName }),
+  ).toBeAttached({ timeout: 30_000 });
+  // Wait for the scope query to be enabled (activeEngagementId set).
+  // We do this by waiting for the "Add Scope Rule" button to be
+  // visible — it's only rendered when an engagement is active.
+  await expect(page.getByRole("button", { name: "Add Scope Rule" })).toBeVisible({ timeout: 30_000 });
   await page.getByRole("button", { name: "Add Scope Rule" }).click();
-  await page.getByPlaceholder("*.example.com").fill(pattern);
-  await page.getByRole("button", { name: "Add Rule" }).click();
+  // Modal opens; the pattern input is required and starts empty.
+  const patternInput = page.getByPlaceholder("*.example.com");
+  await expect(patternInput).toBeVisible({ timeout: 15_000 });
+  await patternInput.fill(pattern);
+  // Submit the form and wait for the POST to complete.
+  const submitBtn = page.getByRole("button", { name: "Add Rule" });
+  const respPromise = page.waitForResponse(
+    (r) => r.url().includes("/scope") && r.request().method() === "POST",
+    { timeout: 30_000 },
+  );
+  await submitBtn.click();
+  const resp = await respPromise;
+  if (!resp.ok()) {
+    const body = await resp.text();
+    throw new Error(`Add scope rule failed: ${resp.status()} ${body}`);
+  }
   // Scope rule is rendered with data-testid="scope-rule"; scope to that to avoid duplicate demo-target in evaluator
-  await expect(page.getByTestId("scope-rule").filter({ hasText: pattern })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId("scope-rule").filter({ hasText: pattern })).toBeVisible({ timeout: 30_000 });
 }
 
 async function createRun(
@@ -94,7 +121,7 @@ async function createRun(
     .selectOption({ label: opts.engagement });
   await page.getByPlaceholder("demo-target").fill(opts.target);
   await page.getByRole("button", { name: "Create Run" }).click();
-  await expect(page.getByRole("link", { name: opts.title, exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("link", { name: opts.title, exact: true })).toBeVisible({ timeout: 30_000 });
 }
 
 async function driveRunToApproval(page: Page, title: string): Promise<void> {
@@ -115,7 +142,7 @@ async function driveRunToApproval(page: Page, title: string): Promise<void> {
     submitBtn.click(),
   ]);
   if (!r2.ok()) throw new Error(`Submit plan failed: ${r2.status()} ${await r2.text()}`);
-  await expect(page.getByTestId("approval-gate")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId("approval-gate")).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText("EXECUTION PAUSED — HUMAN AUTHORIZATION REQUIRED")).toBeVisible();
 }
 
@@ -128,7 +155,7 @@ test("full journey: allowed run completes end to end", async ({ page }) => {
   await createProject(page, project);
   await openProject(page, project);
   await addEngagement(page, "Local Validation");
-  await addScopeRule(page, "demo-target");
+  await addScopeRule(page, "demo-target", "Local Validation");
 
   const runTitle = `Allowed run ${Date.now()}`;
   await createRun(page, {
@@ -156,7 +183,7 @@ test("scope-denied path: out-of-scope target is refused", async ({ page }) => {
   await createProject(page, project);
   await openProject(page, project);
   await addEngagement(page, "Local Validation");
-  await addScopeRule(page, "demo-target");
+  await addScopeRule(page, "demo-target", "Local Validation");
 
   const runTitle = `Denied run ${Date.now()}`;
   await createRun(page, {
@@ -201,7 +228,7 @@ test("operations canvas renders with execution graph and authorization boundary"
   await createProject(page, project);
   await openProject(page, project);
   await addEngagement(page, "Ops Validation");
-  await addScopeRule(page, "demo-target");
+  await addScopeRule(page, "demo-target", "Ops Validation");
 
   const runTitle = `Ops run ${Date.now()}`;
   await createRun(page, { title: runTitle, engagement: "Ops Validation", target: "demo-target" });

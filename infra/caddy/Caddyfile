@@ -1,47 +1,40 @@
 # Reverse proxy configuration for the MORPHIA hosted MVP.
 #
-# Caddy terminates TLS on :443 and routes:
-#   /api/*   -> api:8000      (FastAPI behind a session cookie + CSRF)
-#   /        -> web:3000      (Vite static build served by the preview server)
-#   /healthz -> 200 OK        (Caddy-level health for the load balancer)
+# Only one mode is implemented today: Caddy serves plaintext on :80,
+# and a TLS-terminating proxy in front of it (a Cloudflare Tunnel, or
+# any reverse proxy) is responsible for HTTPS. Point that tunnel's
+# origin at http://localhost:80.
 #
-# Two ways to use this file:
-#   1. Public hostname: replace {$MORPHIA_DOMAIN} with a real domain you own
-#      and point its A/AAAA records at this host; Caddy requests a Let's
-#      Encrypt cert automatically.
-#   2. Tailnet-only: set MORPHIA_DOMAIN=cypherdome.tail-net.ts.net
-#      and have Caddy issue an internal cert via Tailscale's cert
-#      provisioning (requires HTTPS cert support enabled in the tailnet).
+# docker-compose.prod.yml also publishes :443 and passes a DEPLOY_MODE
+# env var, in anticipation of a second "direct" mode where Caddy
+# obtains its own certificate for a real domain via automatic HTTPS —
+# that mode is NOT implemented in this file yet (auto_https is
+# unconditionally off below). Treat DEPLOY_MODE=direct as a roadmap
+# item, not a working option, until this file grows a real
+# {$MORPHIA_DOMAIN} site block.
 
-{$MORPHIA_DOMAIN:localhost}
-
-encode zstd gzip
-header {
-    # Hardening — defense in depth at the edge.
-    X-Content-Type-Options "nosniff"
-    Referrer-Policy "same-origin"
-    X-Frame-Options "DENY"
-    Strict-Transport-Security "max-age=31536000; includeSubDomains"
-    -Server
+{
+    admin off
+    auto_https off
 }
 
-@api path /api/*
-handle @api {
-    reverse_proxy api:8000 {
-        header_up X-Forwarded-Proto {scheme}
-        header_up X-Forwarded-Host {host}
-        header_up X-Real-IP {remote_host}
+http://:80 {
+    encode zstd gzip
+    header {
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "same-origin"
+        X-Frame-Options "DENY"
+        -Server
     }
-}
-
-@health path /healthz
-handle @health {
-    respond "ok" 200
-}
-
-handle {
-    reverse_proxy web:3000 {
-        header_up X-Forwarded-Proto {scheme}
-        header_up X-Forwarded-Host {host}
+    @api path /api/*
+    handle @api {
+        reverse_proxy api:8000
+    }
+    @health path /healthz
+    handle @health {
+        respond "ok" 200
+    }
+    handle {
+        reverse_proxy web:3000
     }
 }

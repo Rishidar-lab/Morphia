@@ -20,7 +20,7 @@ ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$ROOT"
 
 ENV_FILE="infra/deployment/.env"
-COMPOSE="docker compose -f docker-compose.prod.yml"
+COMPOSE="docker compose --env-file $ENV_FILE -f docker-compose.prod.yml"
 
 if [[ "${1:-}" == "--reset" ]]; then
   echo "▸ stopping + wiping volumes"

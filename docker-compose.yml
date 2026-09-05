@@ -80,6 +80,7 @@ services:
     build:
       context: .
       dockerfile: infra/docker/web.Dockerfile
+      target: dev
     ports:
       - "5173:5173"
     environment:
