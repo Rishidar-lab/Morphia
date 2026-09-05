@@ -214,17 +214,23 @@ and `docs/qa/BUG_REPORTS.md`.
 
 - **Single-tenant demo posture.** RBAC and ownership checks are real, but there
   is no organization/tenant model and no admin UI for user/role management.
-- **Separation of duties on approvals is not enforced** — a run's creator can
-  currently approve their own run (`docs/security.md` §1.12 describes this as a
-  control).
-- **The worker executes an LLM step, not real security tooling.** A step's
-  output is a model response, not proof a scan ran. Real tool adapters
-  (nuclei/subfinder/…) are a separate, unbuilt feature.
-- **SSRF deny-list and upload magic-byte validation are described in
-  `docs/security.md` but not implemented.**
-- **No production deployment configuration** — the compose file is dev-grade
-  (bind mounts, dev credentials, `DEBUG=true`, no TLS). `infra/deployment/` is
-  empty.
+- **Self-approval is flagged, not blocked.** A single-owner MVP has no second
+  approver to fall back to, so approving your own run requires a written
+  justification (≥10 chars) and is permanently recorded as `self_approved: true`
+  in the audit trail, rather than being prevented (`docs/security.md` §1.12).
+- **Only one real tool is wired: httpx.** A plan step tagged `"tool": "httpx"`
+  runs the real ProjectDiscovery `httpx` binary — its actual stdout/stderr/exit
+  code/argv/version become the step's evidence, going through the same scope
+  validator as every other step. An untagged step still invokes the LLM
+  provider as before. Provenance isn't yet formalized beyond a `source` marker
+  in the step's JSON output — a dedicated schema field, UI treatment, and
+  disclosure-report distinction between tool- and model-sourced evidence
+  remain unbuilt. Tool subprocesses run inside the worker container itself,
+  with no additional per-run sandbox, and the worker shares one Docker Compose
+  network with the rest of the stack (no dedicated egress segment yet).
+- **Production deployment configuration exists** (`docker-compose.prod.yml`,
+  Caddy TLS, generated secrets, prod secret validation) but has not been
+  exercised against a real external host/domain — only locally.
 - **Backup/restore scripts exist but are unexercised.**
 - **Provider selection is process-wide**, not per-run.
 

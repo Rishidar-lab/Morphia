@@ -28,3 +28,10 @@ OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "openai/gpt-4o-mini")
 
 LOCAL_MODEL_URL = os.environ.get("LOCAL_MODEL_URL", "http://localhost:11434/v1")
 LOCAL_MODEL_NAME = os.environ.get("LOCAL_MODEL_NAME", "llama3.1")
+
+# ── Tool adapters ──────────────────────────────────────────
+# Absolute path, not a bare name on $PATH — avoids PATH-hijacking and
+# matches where infra/docker/worker.Dockerfile installs the binary.
+TOOL_HTTPX_PATH = os.environ.get("TOOL_HTTPX_PATH", "/usr/local/bin/httpx")
+TOOL_TIMEOUT_SECONDS = int(os.environ.get("TOOL_TIMEOUT_SECONDS", "15"))
+TOOL_MAX_OUTPUT_BYTES = int(os.environ.get("TOOL_MAX_OUTPUT_BYTES", str(256 * 1024)))
