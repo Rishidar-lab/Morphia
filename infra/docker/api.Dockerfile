@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY apps/api/pyproject.toml apps/api/
 COPY apps/worker/pyproject.toml apps/worker/
 COPY packages/ packages/
-RUN pip install --no-cache-dir -e "apps/api" -e "apps/worker"
+RUN pip install --no-cache-dir -e "apps/api[dev]" -e "apps/worker[dev]"
 
 COPY apps/api/ apps/api/
 COPY apps/worker/ apps/worker/
