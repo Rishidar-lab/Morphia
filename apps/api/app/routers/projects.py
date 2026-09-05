@@ -61,6 +61,7 @@ async def create_project(
     )
     db.add(project)
     await db.flush()
+    await db.commit()
 
     db.add(
         AuditEvent(
@@ -73,6 +74,7 @@ async def create_project(
         )
     )
     await db.flush()
+    await db.commit()
     return project
 
 

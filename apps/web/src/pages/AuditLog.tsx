@@ -3,57 +3,24 @@ import { useQuery } from "@tanstack/react-query";
 import { api, ApiError } from "@/lib/api";
 import type { AuditEvent } from "@/lib/types";
 import { LoadingSkeleton, EmptyState, ErrorState } from "@/components/ListStates";
+import { AuditStream } from "@/components/AuditStream";
 
 const PAGE_SIZE = 25;
+const KNOWN_EVENT_TYPES = ["auth.login","auth.logout","auth.failed","project.create","project.delete","engagement.create","scope.modify","run.transition","run.cancelled","approval.decide","evidence.upload","finding.create","report.generate","role.change","user.suspend"];
+const CATS = ["all","authorization","execution","human","evidence","finding","report","system"] as const;
 
-const KNOWN_EVENT_TYPES = [
-  "auth.login",
-  "auth.logout",
-  "auth.failed",
-  "project.create",
-  "project.delete",
-  "engagement.create",
-  "scope.modify",
-  "run.transition",
-  "run.cancelled",
-  "approval.decide",
-  "evidence.upload",
-  "finding.create",
-  "report.generate",
-  "role.change",
-  "user.suspend",
-];
-
-function EventTypeTag({ eventType }: { eventType: string }) {
-  const [namespace] = eventType.split(".");
-  const colorByNamespace: Record<string, string> = {
-    auth: "bg-purple-500/10 text-purple-300 border-purple-500/30",
-    run: "bg-blue-500/10 text-blue-300 border-blue-500/30",
-    approval: "bg-amber-500/10 text-amber-300 border-amber-500/30",
-    scope: "bg-red-500/10 text-red-300 border-red-500/30",
-    project: "bg-cyan-500/10 text-cyan-300 border-cyan-500/30",
-    engagement: "bg-cyan-500/10 text-cyan-300 border-cyan-500/30",
-    evidence: "bg-emerald-500/10 text-emerald-300 border-emerald-500/30",
-    finding: "bg-orange-500/10 text-orange-300 border-orange-500/30",
-    report: "bg-gray-500/10 text-gray-300 border-gray-500/30",
-    role: "bg-red-500/10 text-red-300 border-red-500/30",
-    user: "bg-red-500/10 text-red-300 border-red-500/30",
-  };
-
-  return (
-    <span
-      className={
-        "text-xs px-2 py-0.5 rounded-full border font-mono whitespace-nowrap " +
-        (colorByNamespace[namespace] ?? "bg-gray-500/10 text-gray-400 border-gray-500/30")
-      }
-    >
-      {eventType}
-    </span>
-  );
+function eventCategory(type: string): string {
+  if (["scope.modify","auth.login","auth.logout","auth.failed","role.change"].includes(type)) return "authorization";
+  if (type.startsWith("run.") || type.startsWith("approval.")) return "execution";
+  if (type.startsWith("evidence.")) return "evidence";
+  if (type.startsWith("finding.")) return "finding";
+  if (type.startsWith("report.")) return "report";
+  return "system";
 }
 
 export default function AuditLog() {
   const [eventTypeFilter, setEventTypeFilter] = useState<string>("all");
+  const [catFilter, setCatFilter] = useState<string>("all");
   const [page, setPage] = useState(1);
 
   const { data, isLoading, isError, error, refetch } = useQuery({
@@ -61,128 +28,78 @@ export default function AuditLog() {
     queryFn: () => api.get<AuditEvent[]>("/api/v1/audit-events"),
     retry: false,
   });
-
   const notImplemented = isError && error instanceof ApiError && error.status === 404;
 
   const filtered = useMemo(() => {
-    const items = data ?? [];
-    if (eventTypeFilter === "all") return items;
-    return items.filter((e) => e.event_type === eventTypeFilter);
-  }, [data, eventTypeFilter]);
+    let items = data ?? [];
+    if (eventTypeFilter !== "all") items = items.filter((e) => e.event_type === eventTypeFilter);
+    if (catFilter !== "all") items = items.filter((e) => eventCategory(e.event_type) === catFilter);
+    return items;
+  }, [data, eventTypeFilter, catFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+    <div className="px-4 sm:px-6 py-5 space-y-4">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-100">Audit Log</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Immutable record of every security-relevant action — read only
-          </p>
+          <h1 className="text-[18px] font-bold" style={{ color: "var(--text-primary)" }}>GOVERNANCE — AUDIT LOG</h1>
+          <p className="mono text-xs mt-1" style={{ color: "var(--text-faint)" }}>Immutable, append-only record · every security-relevant action · read-only</p>
         </div>
-
-        <select
-          value={eventTypeFilter}
-          onChange={(e) => {
-            setEventTypeFilter(e.target.value);
-            setPage(1);
-          }}
-          className="bg-gray-950 border border-gray-700 rounded-md px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500"
-        >
-          <option value="all">All event types</option>
-          {KNOWN_EVENT_TYPES.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-        </select>
+        <div className="flex items-center gap-2 flex-wrap">
+          <select value={catFilter} onChange={(e) => { setCatFilter(e.target.value); setPage(1); }} className="mono text-xs rounded-[6px] px-3 py-2 focus:outline-none" style={{ background: "var(--bg-panel)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}>
+            {CATS.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <select value={eventTypeFilter} onChange={(e) => { setEventTypeFilter(e.target.value); setPage(1); }} className="mono text-xs rounded-[6px] px-3 py-2 focus:outline-none" style={{ background: "var(--bg-panel)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}>
+            <option value="all">All event types</option>
+            {KNOWN_EVENT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </div>
       </div>
 
-      {isLoading && <LoadingSkeleton rows={6} />}
-
-      {isError && !notImplemented && (
-        <ErrorState
-          message={error instanceof ApiError ? error.message : "Failed to load audit log."}
-          onRetry={() => refetch()}
-        />
+      {!isLoading && !isError && data && data.length > 0 && (
+        <AuditStream events={data} maxItems={8} title="Live stream — most recent" />
       )}
 
+      {isLoading && <LoadingSkeleton rows={6} />}
+      {isError && !notImplemented && <ErrorState message={error instanceof ApiError ? error.message : "Failed to load audit log."} onRetry={() => refetch()} />}
       {(notImplemented || (!isLoading && !isError && filtered.length === 0)) && (
-        <EmptyState
-          title="No audit events yet"
-          description="Every auth event, scope change, run transition, and approval decision is recorded here automatically."
-        />
+        <EmptyState title="No audit events yet" description="Every auth event, scope change, run transition, and approval decision is recorded here automatically. The trail is append-only." />
       )}
 
       {!isLoading && !isError && !notImplemented && filtered.length > 0 && (
         <>
-          <div className="bg-gray-900/50 border border-gray-800 rounded-lg overflow-hidden overflow-x-auto">
+          <div className="rounded-[6px] overflow-hidden overflow-x-auto" style={{ background: "var(--bg-panel)", border: "1px solid var(--border-default)" }}>
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-800 text-left text-xs text-gray-500 uppercase tracking-wider">
+                <tr className="mono text-[11px] tracking-[0.08em] text-left" style={{ borderBottom: "1px solid var(--border-subtle)", color: "var(--text-faint)" }}>
                   <th className="px-4 py-3 font-medium">Timestamp</th>
-                  <th className="px-4 py-3 font-medium">Event Type</th>
+                  <th className="px-4 py-3 font-medium">Event</th>
                   <th className="px-4 py-3 font-medium">Actor</th>
                   <th className="px-4 py-3 font-medium">Target</th>
                   <th className="px-4 py-3 font-medium">Action</th>
                 </tr>
               </thead>
               <tbody>
-                {pageItems.map((event) => (
-                  <tr
-                    key={event.id}
-                    className="border-b border-gray-800/60 last:border-0 hover:bg-gray-800/30 transition-colors"
-                  >
-                    <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
-                      {new Date(event.created_at).toLocaleString()}
-                    </td>
-                    <td className="px-4 py-3">
-                      <EventTypeTag eventType={event.event_type} />
-                    </td>
-                    <td className="px-4 py-3 text-gray-300 font-mono text-xs">
-                      {event.actor_id
-                        ? event.actor_id.startsWith("worker:")
-                          ? event.actor_id
-                          : event.actor_id.slice(0, 8)
-                        : "system"}
-                    </td>
-                    <td className="px-4 py-3 text-gray-400">
-                      {event.target_type
-                        ? `${event.target_type}${event.target_id ? ` · ${event.target_id.slice(0, 8)}` : ""}`
-                        : "—"}
-                    </td>
-                    <td className="px-4 py-3 text-gray-400">{event.action}</td>
+                {pageItems.map((ev) => (
+                  <tr key={ev.id} style={{ borderBottom: "1px solid var(--border-subtle)" }}>
+                    <td className="px-4 py-3 mono text-xs whitespace-nowrap" style={{ color: "var(--text-faint)" }}>{new Date(ev.created_at).toLocaleString()}</td>
+                    <td className="px-4 py-3"><span className="mono text-xs px-2 py-0.5 rounded" style={{ background: "var(--bg-inset)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }}>{ev.event_type}</span></td>
+                    <td className="px-4 py-3 mono text-xs" style={{ color: "var(--text-muted)" }}>{ev.actor_id ? (ev.actor_id.startsWith("worker:") ? ev.actor_id : ev.actor_id.slice(0, 8)) : "system"}</td>
+                    <td className="px-4 py-3 mono text-xs" style={{ color: "var(--text-muted)" }}>{ev.target_type ? `${ev.target_type} · ${ev.target_id?.slice(0, 8) ?? ""}` : "—"}</td>
+                    <td className="px-4 py-3 text-xs" style={{ color: "var(--text-secondary)" }}>{ev.action}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-
-          <div className="flex items-center justify-between mt-4">
-            <p className="text-xs text-gray-500">
-              Showing {(page - 1) * PAGE_SIZE + 1}–
-              {Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}
-            </p>
+          <div className="flex items-center justify-between">
+            <p className="mono text-xs" style={{ color: "var(--text-faint)" }}>Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}</p>
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="px-3 py-1.5 text-xs rounded-md border border-gray-700 text-gray-300 hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                Previous
-              </button>
-              <span className="text-xs text-gray-500">
-                Page {page} of {totalPages}
-              </span>
-              <button
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
-                className="px-3 py-1.5 text-xs rounded-md border border-gray-700 text-gray-300 hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                Next
-              </button>
+              <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="mono text-xs px-3 py-1.5 rounded-[6px] disabled:opacity-40" style={{ border: "1px solid var(--border-default)", color: "var(--text-secondary)", background: "var(--bg-panel)" }}>Previous</button>
+              <span className="mono text-xs" style={{ color: "var(--text-faint)" }}>Page {page} of {totalPages}</span>
+              <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="mono text-xs px-3 py-1.5 rounded-[6px] disabled:opacity-40" style={{ border: "1px solid var(--border-default)", color: "var(--text-secondary)", background: "var(--bg-panel)" }}>Next</button>
             </div>
           </div>
         </>

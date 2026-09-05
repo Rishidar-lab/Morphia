@@ -1,5 +1,17 @@
 # MORPHIA MVP Verification Matrix
 
+> **Update, 2026-09-05:** re-verified from a completely fresh `docker compose
+> down -v && docker compose up -d --build` (wiped database, rebuilt images) —
+> not just a re-run against an already-running stack. This pass found and
+> fixed three real bugs the previous verification had missed: the dev web
+> container was unreachable on port 5173 (a Dockerfile/Compose port
+> mismatch), `docker-compose.prod.yml` hardcoded an absolute developer path,
+> and the Playwright `addScopeRule()` helper waited on a hardcoded engagement
+> name that didn't match one of its three call sites. Full writeup and
+> reproduction steps: `docs/qa/BUG_REPORTS.md` BUG-001–BUG-003. The
+> quality-gate table below is updated to today's real counts; the rest of
+> this document is left as the original 2026-08-30 record.
+
 **Date:** 2026-08-30
 **Stack:** `docker compose` — Postgres 16, Redis 7, FastAPI api, worker, React web, synthetic `demo-target`
 **Method:** every PASS below has runtime evidence from a live stack. Nothing is
@@ -50,13 +62,13 @@ cd tests/e2e && npm test          # Playwright MVP-journey suite
 | Python lint | `ruff check apps/api apps/worker` | **PASS** |
 | Python format | `ruff format --check apps/api apps/worker` | **PASS** |
 | mypy (strict) | `cd apps/api && mypy app/` | **PASS** — no issues, 37 files |
-| API tests | `pytest apps/api/tests` | **PASS** — 60 passed |
+| API tests | `pytest apps/api/tests` | **PASS** — 130 passed (2026-09-05) |
 | Worker tests | `pytest apps/worker/tests` | **PASS** — 8 passed |
 | Frontend lint | `npm run lint` | **PASS** |
 | Frontend typecheck | `npm run typecheck` | **PASS** |
-| Frontend unit tests | `npm run test` | **PASS** — 37 passed / 9 files |
+| Frontend unit tests | `npm run test` | **PASS** — 53 passed / 14 files (2026-09-05) |
 | Frontend prod build | `npm run build` | **PASS** — Tailwind now compiled (was broken) |
-| Playwright (live) | `cd tests/e2e && npx playwright test mvp-journey` | **PASS** — 4/4 |
+| Playwright (live) | `cd tests/e2e && npx playwright test mvp-journey` | **PASS** — 6/6, from a wiped-volume fresh boot (2026-09-05) |
 | Compose validation | `docker compose config --quiet` | **PASS** |
 | Docker image build | `docker compose build` | **PASS** |
 | Secret scan | `gitleaks` (CI) | **PASS** |

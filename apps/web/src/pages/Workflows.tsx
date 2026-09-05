@@ -7,13 +7,13 @@ import { LoadingSkeleton, EmptyState, ErrorState } from "@/components/ListStates
 
 const STATUS_STYLE: Record<WorkflowStatus, string> = {
   active: "bg-green-500/10 text-green-300 border-green-500/30",
-  draft: "bg-gray-500/10 text-gray-400 border-gray-500/30",
+  draft: "bg-gray-500/10 text-[var(--text-muted)] border-gray-500/30",
   archived: "bg-red-500/10 text-red-300 border-red-500/30",
 };
 
 const NODE_TYPE_STYLE: Record<WorkflowNodeType, { bg: string; text: string; border: string; label: string }> = {
-  entry: { bg: "bg-blue-500/10", text: "text-blue-300", border: "border-blue-500/40", label: "Entry" },
-  step: { bg: "bg-gray-800/60", text: "text-gray-200", border: "border-gray-700", label: "Step" },
+  entry: { bg: "bg-blue-500/10", text: "text-[var(--active)]", border: "border-blue-500/40", label: "Entry" },
+  step: { bg: "bg-gray-800/60", text: "text-[var(--text-primary)]", border: "border-[var(--border-default)]", label: "Step" },
   approval_gate: {
     bg: "bg-amber-500/10",
     text: "text-amber-300",
@@ -114,7 +114,7 @@ function WorkflowGraph({ nodes }: { nodes: WorkflowNode[] }) {
               <p className="text-[10px] uppercase tracking-wider opacity-70">{style.label}</p>
               <p className="font-medium mt-0.5">{node.name}</p>
             </div>
-            {i < ordered.length - 1 && <span className="text-gray-600">→</span>}
+            {i < ordered.length - 1 && <span className="text-[var(--text-faint)]">→</span>}
           </div>
         );
       })}
@@ -128,14 +128,14 @@ function WorkflowCard({ workflow }: { workflow: Workflow }) {
   const gateCount = workflow.nodes.filter((n) => n.type === "approval_gate").length;
 
   return (
-    <div className="bg-gray-900/50 border border-gray-800 rounded-lg p-5">
+    <div className="bg-[var(--bg-panel)] border border-[var(--border-default)] rounded-[6px] p-5">
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-sm font-semibold text-gray-100">{workflow.name}</h2>
-            <span className="text-xs text-gray-500">v{workflow.version}</span>
+            <h2 className="text-sm font-semibold text-[var(--text-primary)]">{workflow.name}</h2>
+            <span className="text-xs text-[var(--text-faint)]">v{workflow.version}</span>
           </div>
-          <p className="text-sm text-gray-400 mt-1 max-w-2xl">{workflow.description}</p>
+          <p className="text-sm text-[var(--text-muted)] mt-1 max-w-2xl">{workflow.description}</p>
         </div>
         <span
           className={
@@ -147,7 +147,7 @@ function WorkflowCard({ workflow }: { workflow: Workflow }) {
         </span>
       </div>
 
-      <div className="flex items-center gap-4 mt-3 text-xs text-gray-500">
+      <div className="flex items-center gap-4 mt-3 text-xs text-[var(--text-faint)]">
         <span>{workflow.nodes.length} nodes</span>
         <span>{stepCount} steps</span>
         <span>{gateCount} approval gates</span>
@@ -158,14 +158,14 @@ function WorkflowCard({ workflow }: { workflow: Workflow }) {
         </span>
         <button
           onClick={() => setExpanded((v) => !v)}
-          className="ml-auto text-blue-400 hover:text-blue-300"
+          className="ml-auto text-[var(--active)] hover:text-[var(--active)]"
         >
           {expanded ? "Hide structure" : "View structure"}
         </button>
       </div>
 
       {expanded && (
-        <div className="mt-4 pt-4 border-t border-gray-800 overflow-x-auto">
+        <div className="mt-4 pt-4 border-t border-[var(--border-default)] overflow-x-auto">
           <WorkflowGraph nodes={workflow.nodes} />
         </div>
       )}
@@ -188,8 +188,8 @@ export default function Workflows() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-100">Workflows</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-2xl font-bold text-[var(--text-primary)]">Workflows</h1>
+          <p className="text-sm text-[var(--text-faint)] mt-1">
             Orchestration templates defining how runs move from entry to exit
           </p>
         </div>

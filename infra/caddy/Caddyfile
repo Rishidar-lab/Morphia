@@ -1,0 +1,40 @@
+# Reverse proxy configuration for the MORPHIA hosted MVP.
+#
+# Only one mode is implemented today: Caddy serves plaintext on :80,
+# and a TLS-terminating proxy in front of it (a Cloudflare Tunnel, or
+# any reverse proxy) is responsible for HTTPS. Point that tunnel's
+# origin at http://localhost:80.
+#
+# docker-compose.prod.yml also publishes :443 and passes a DEPLOY_MODE
+# env var, in anticipation of a second "direct" mode where Caddy
+# obtains its own certificate for a real domain via automatic HTTPS —
+# that mode is NOT implemented in this file yet (auto_https is
+# unconditionally off below). Treat DEPLOY_MODE=direct as a roadmap
+# item, not a working option, until this file grows a real
+# {$MORPHIA_DOMAIN} site block.
+
+{
+    admin off
+    auto_https off
+}
+
+http://:80 {
+    encode zstd gzip
+    header {
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "same-origin"
+        X-Frame-Options "DENY"
+        -Server
+    }
+    @api path /api/*
+    handle @api {
+        reverse_proxy api:8000
+    }
+    @health path /healthz
+    handle @health {
+        respond "ok" 200
+    }
+    handle {
+        reverse_proxy web:3000
+    }
+}

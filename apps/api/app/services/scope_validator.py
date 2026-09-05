@@ -27,6 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.audit import AuditEvent, AuditEventType
 from app.models.domain import Engagement, ScopeRule
 from app.models.runs import ApprovalRequest, Run
+from app.services.target_safety import prohibited_target_reason
 
 # Actions that require an existing approved ApprovalRequest before they may proceed.
 ACTIONS_REQUIRING_APPROVAL = {"exploit", "active_scan", "destructive_test", "social_engineering"}
@@ -98,6 +99,16 @@ class ScopeValidator:
                 checks_passed,
             )
         checks_passed.append("engagement_active")
+
+        # 1b. Target is not intrinsically unsafe (SSRF / metadata / rebinding).
+        # Runs before scope matching so a dangerous target is denied even if
+        # an over-broad include rule would otherwise match it.
+        unsafe_reason = prohibited_target_reason(target)
+        if unsafe_reason is not None:
+            return await self._deny(
+                engagement_id, target, action, actor, unsafe_reason, checks_passed
+            )
+        checks_passed.append("target_safe")
 
         # 2 & 3. Target matches an allowed scope rule and not an exclusion.
         scope_rules = await self._get_scope_rules(engagement_id)

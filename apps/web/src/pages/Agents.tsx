@@ -70,8 +70,8 @@ const DEFAULT_PROFILES: AgentProfile[] = [
 ];
 
 const APPROVAL_LEVEL_STYLE: Record<ApprovalLevel, string> = {
-  none: "bg-gray-500/10 text-gray-400 border-gray-500/30",
-  plan_only: "bg-blue-500/10 text-blue-300 border-blue-500/30",
+  none: "bg-gray-500/10 text-[var(--text-muted)] border-gray-500/30",
+  plan_only: "bg-blue-500/10 text-[var(--active)] border-blue-500/30",
   action_level: "bg-amber-500/10 text-amber-300 border-amber-500/30",
   full: "bg-red-500/10 text-red-300 border-red-500/30",
 };
@@ -92,23 +92,23 @@ function ConfigurePlaceholder({
 }) {
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="w-full max-w-md bg-gray-900 border border-gray-800 rounded-lg shadow-2xl p-5">
-        <h2 className="text-base font-semibold text-gray-100 mb-2">
+      <div className="w-full max-w-md bg-[var(--bg-panel)] border border-[var(--border-default)] rounded-[6px] shadow-2xl p-5">
+        <h2 className="text-base font-semibold text-[var(--text-primary)] mb-2">
           Configure {profile.name}
         </h2>
-        <p className="text-sm text-gray-400 mb-4">
+        <p className="text-sm text-[var(--text-muted)] mb-4">
           Agent profile configuration is managed via server-side config files
           today. Editable in-app configuration (tool allowlists, cost caps,
           approval routing) is planned but not yet available.
         </p>
-        <div className="bg-gray-950/50 border border-gray-800 rounded-md p-3 text-xs text-gray-500 mb-4">
+        <div className="bg-[var(--bg-inset)]/50 border border-[var(--border-default)] rounded-md p-3 text-xs text-[var(--text-faint)] mb-4">
           Coming soon: edit allowed tools, cost ceiling, and approval routing
           per profile directly from this dialog.
         </div>
         <div className="flex justify-end">
           <button
             onClick={onClose}
-            className="px-3.5 py-1.5 text-sm rounded-md border border-gray-700 text-gray-300 hover:bg-gray-800 transition-colors"
+            className="px-3.5 py-1.5 text-sm rounded-md border border-[var(--border-default)] text-[var(--text-secondary)] hover:bg-gray-800 transition-colors"
           >
             Close
           </button>
@@ -124,8 +124,8 @@ export default function Agents() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-100">Agents</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-[var(--text-primary)]">Agents</h1>
+        <p className="text-sm text-[var(--text-faint)] mt-1">
           Config-driven agent profiles that govern what each run is permitted to do
         </p>
       </div>
@@ -139,10 +139,10 @@ export default function Agents() {
         {DEFAULT_PROFILES.map((profile) => (
           <div
             key={profile.id}
-            className="bg-gray-900/50 border border-gray-800 rounded-lg p-5 flex flex-col"
+            className="bg-[var(--bg-panel)] border border-[var(--border-default)] rounded-[6px] p-5 flex flex-col"
           >
             <div className="flex items-start justify-between gap-3">
-              <h2 className="text-sm font-semibold text-gray-100">{profile.name}</h2>
+              <h2 className="text-sm font-semibold text-[var(--text-primary)]">{profile.name}</h2>
               <span
                 className={
                   "text-xs px-2 py-0.5 rounded-full border whitespace-nowrap " +
@@ -153,16 +153,16 @@ export default function Agents() {
               </span>
             </div>
 
-            <p className="text-sm text-gray-400 mt-2 flex-1">{profile.purpose}</p>
+            <p className="text-sm text-[var(--text-muted)] mt-2 flex-1">{profile.purpose}</p>
 
             <div className="grid grid-cols-2 gap-3 mt-4 text-xs">
               <div>
-                <p className="text-gray-500 uppercase tracking-wider">Allowed Tools</p>
-                <p className="text-gray-300 mt-0.5">{profile.allowed_tools.length} tools</p>
+                <p className="text-[var(--text-faint)] uppercase tracking-wider">Allowed Tools</p>
+                <p className="text-[var(--text-secondary)] mt-0.5">{profile.allowed_tools.length} tools</p>
               </div>
               <div>
-                <p className="text-gray-500 uppercase tracking-wider">Max Cost</p>
-                <p className="text-gray-300 mt-0.5">${profile.max_cost_usd.toFixed(2)}</p>
+                <p className="text-[var(--text-faint)] uppercase tracking-wider">Max Cost</p>
+                <p className="text-[var(--text-secondary)] mt-0.5">${profile.max_cost_usd.toFixed(2)}</p>
               </div>
             </div>
 
@@ -170,7 +170,7 @@ export default function Agents() {
               {profile.allowed_tools.map((tool) => (
                 <span
                   key={tool}
-                  className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-gray-950 border border-gray-800 text-gray-500"
+                  className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-[var(--bg-inset)] border border-[var(--border-default)] text-[var(--text-faint)]"
                 >
                   {tool}
                 </span>
@@ -179,7 +179,7 @@ export default function Agents() {
 
             <button
               onClick={() => setConfiguring(profile)}
-              className="mt-4 self-start px-3 py-1.5 text-xs font-medium rounded-md border border-gray-700 text-gray-300 hover:bg-gray-800 transition-colors"
+              className="mt-4 self-start px-3 py-1.5 text-xs font-medium rounded-md border border-[var(--border-default)] text-[var(--text-secondary)] hover:bg-gray-800 transition-colors"
             >
               Configure
             </button>

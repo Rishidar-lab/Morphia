@@ -87,7 +87,10 @@ async def _approved_run(client: AsyncClient, pid: str, eid: str, target: str) ->
             await client.post(f"/api/v1/runs/{run_id}/transition", json={"target_state": state})
         ).status_code == 200
     assert (
-        await client.post(f"/api/v1/runs/{run_id}/approve", json={"justification": "ok"})
+        await client.post(
+            f"/api/v1/runs/{run_id}/approve",
+            json={"justification": "scope proof approval: synthetic target review"},
+        )
     ).status_code == 200
     return run_id
 

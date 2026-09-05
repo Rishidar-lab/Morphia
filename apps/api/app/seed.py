@@ -55,6 +55,8 @@ ADMIN_DISPLAY_NAME = os.environ.get("SEED_ADMIN_DISPLAY_NAME", "MORPHIA Demo Own
 PROJECT_NAME = "Morphia Demo Research"
 ENGAGEMENT_NAME = "Authorized Local Security Validation"
 RUN_TITLE = "Baseline HTTP Security Review"
+RUN_TITLE_AWAITING = "Header Hardening Review — Awaiting Approval"
+RUN_TITLE_FAILED = "Out-of-Scope Probe — Blocked by Policy"
 FINDING_TITLE = "[SYNTHETIC DEMO] Permissive CORS policy on demo target"
 REPORT_TITLE = "Authorized Local Validation — Baseline HTTP Review"
 
@@ -512,10 +514,140 @@ def _seed_completed_run(
     return run
 
 
+def _seed_awaiting_run(
+    db: SyncSession, project: Project, engagement: Engagement, owner: User
+) -> Run:
+    existing = db.execute(
+        select(Run).where(Run.project_id == project.id, Run.title == RUN_TITLE_AWAITING)
+    ).scalar_one_or_none()
+    if existing:
+        print(f"[seed] awaiting run exists: {RUN_TITLE_AWAITING}")
+        return existing
+    plan = {
+        "steps": [
+            {
+                "action": "http_security_headers_audit",
+                "target": DEMO_TARGET,
+                "prompt": "Audit the security headers of the authorized synthetic target demo-target:9000. Check for missing HSTS, CSP, and related hardening headers. Passive only.",
+            }
+        ]
+    }
+    run = Run(
+        project_id=project.id,
+        engagement_id=engagement.id,
+        title=RUN_TITLE_AWAITING,
+        agent_profile="passive_recon",
+        plan=plan,
+        state=RunState.AWAITING_PLAN_APPROVAL,
+        created_by=owner.id,
+    )
+    db.add(run)
+    db.flush()
+    now = datetime.now(UTC) + timedelta(seconds=10)
+    for i, (etype, frm, to, actor, payload) in enumerate(
+        [
+            ("run.created", None, "DRAFT", owner.id, None),
+            ("run.transition", "DRAFT", "PLANNING", owner.id, None),
+            ("run.transition", "PLANNING", "AWAITING_PLAN_APPROVAL", owner.id, None),
+        ]
+    ):
+        db.add(
+            RunEvent(
+                run_id=run.id,
+                event_type=etype,
+                from_state=frm,
+                to_state=to,
+                actor_id=actor,
+                payload=payload,
+                created_at=now + timedelta(seconds=i),
+            )
+        )
+    db.flush()
+    print(f"[seed] created awaiting-approval run: {RUN_TITLE_AWAITING}")
+    return run
+
+
+def _seed_failed_run(db: SyncSession, project: Project, engagement: Engagement, owner: User) -> Run:
+    existing = db.execute(
+        select(Run).where(Run.project_id == project.id, Run.title == RUN_TITLE_FAILED)
+    ).scalar_one_or_none()
+    if existing:
+        print(f"[seed] failed run exists: {RUN_TITLE_FAILED}")
+        return existing
+    plan = {
+        "steps": [
+            {
+                "action": "http_header_review",
+                "target": "production.example.com",
+                "prompt": "Attempt to review production.example.com — expected to be blocked by scope policy.",
+            }
+        ]
+    }
+    run = Run(
+        project_id=project.id,
+        engagement_id=engagement.id,
+        title=RUN_TITLE_FAILED,
+        agent_profile="passive_recon",
+        plan=plan,
+        state=RunState.FAILED,
+        created_by=owner.id,
+        failure_reason="Scope validation failed: target 'production.example.com' is explicitly excluded by scope rule 'production.example.com' (exclude). Execution prevented.",
+    )
+    db.add(run)
+    db.flush()
+    now = datetime.now(UTC) + timedelta(seconds=20)
+    for i, (etype, frm, to, actor, payload) in enumerate(
+        [
+            ("run.created", None, "DRAFT", owner.id, None),
+            ("run.transition", "DRAFT", "PLANNING", owner.id, None),
+            ("run.transition", "PLANNING", "AWAITING_PLAN_APPROVAL", owner.id, None),
+            (
+                "approval.decide",
+                "AWAITING_PLAN_APPROVAL",
+                "QUEUED",
+                owner.id,
+                {
+                    "decision": "approved",
+                    "justification": "Approved for demo denial path — will be blocked by worker revalidation.",
+                },
+            ),
+            ("run.claimed", "QUEUED", "FAILED", "worker:seed", None),
+            (
+                "run.scope_denied",
+                None,
+                None,
+                "worker:seed",
+                {
+                    "reason": "target 'production.example.com' is explicitly excluded",
+                    "target": "production.example.com",
+                },
+            ),
+        ]
+    ):
+        db.add(
+            RunEvent(
+                run_id=run.id,
+                event_type=etype,
+                from_state=frm,
+                to_state=to,
+                actor_id=actor,
+                payload=payload,
+                created_at=now + timedelta(seconds=i),
+            )
+        )
+    db.flush()
+    print(f"[seed] created failed (blocked) run: {RUN_TITLE_FAILED}")
+    return run
+
+
 def main() -> None:
     settings = get_settings()
-    if settings.is_production:
-        print("[seed] Refusing to seed in production. Aborting.", file=sys.stderr)
+    if settings.is_production and not os.getenv("ALLOW_PROD_SEED"):
+        print(
+            "[seed] Refusing to seed in production. Set ALLOW_PROD_SEED=1 to override "
+            "(e.g. first-boot of the hosted demo).",
+            file=sys.stderr,
+        )
         sys.exit(1)
     if not ADMIN_PASSWORD:
         print(
@@ -533,6 +665,8 @@ def main() -> None:
             engagement = _get_or_create_engagement(db, project, owner)
             _seed_scope_rules(db, engagement, owner)
             _seed_completed_run(db, project, engagement, owner)
+            _seed_awaiting_run(db, project, engagement, owner)
+            _seed_failed_run(db, project, engagement, owner)
             db.commit()
             print("[seed] Seed complete.")
             print(f"[seed]   sign in at http://localhost:5173  as  {ADMIN_EMAIL}")

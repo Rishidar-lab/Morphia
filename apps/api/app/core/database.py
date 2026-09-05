@@ -43,11 +43,20 @@ async_session_factory = async_sessionmaker(
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    """Dependency that provides a database session per request."""
+    """Dependency that provides a database session per request.
+
+    Note: the session's commit happens in the *route*, not in this
+    dependency's cleanup — FastAPI runs `yield`-dependencies' cleanup
+    AFTER the response is sent, so committing here would race against
+    the client's follow-up request. Routes that write must call
+    `await db.commit()` themselves before returning, then the cleanup
+    block below is a safety net (idempotent if no writes were made).
+    """
     async with async_session_factory() as session:
         try:
             yield session
-            await session.commit()
+            if session.in_transaction():
+                await session.commit()
         except Exception:
             await session.rollback()
             raise

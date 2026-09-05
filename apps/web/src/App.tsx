@@ -6,6 +6,7 @@ import { LoadingScreen } from "./components/LoadingScreen";
 
 // ── Lazy-loaded pages (route-level code splitting) ──────
 const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Operations = lazy(() => import("./pages/Operations"));
 const SignIn = lazy(() => import("./pages/SignIn"));
 const Projects = lazy(() => import("./pages/Projects"));
 const ProjectDetail = lazy(() => import("./pages/ProjectDetail"));
@@ -28,7 +29,8 @@ export default function App() {
         <Routes>
           <Route path="/sign-in" element={<SignIn />} />
           <Route element={<Layout />}>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/" element={<Navigate to="/operations" replace />} />
+            <Route path="/operations" element={<Operations />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/projects" element={<Projects />} />
             <Route path="/projects/:id" element={<ProjectDetail />} />

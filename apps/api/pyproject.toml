@@ -54,7 +54,7 @@ ignore = ["E501", "S101"]  # line wrapping and test asserts are handled separate
 "app/routers/*.py" = ["B008"]  # FastAPI dependencies use callable defaults by design
 "app/middleware/rbac.py" = ["B008"]
 "app/seed.py" = ["T201"]  # CLI progress output is intentional
-"tests/*.py" = ["S105", "S108"]  # test-only credentials and disposable test resources
+"tests/*.py" = ["S105", "S106", "S108", "S104"]  # test-only credentials and disposable test resources
 
 [tool.mypy]
 python_version = "3.11"

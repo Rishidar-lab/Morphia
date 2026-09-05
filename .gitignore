@@ -65,3 +65,4 @@ uploads/
 *.pem
 *.key
 secrets/
+infra/deployment/.env

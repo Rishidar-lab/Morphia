@@ -135,6 +135,7 @@ async def _record_event(
     )
     db.add(event)
     await db.flush()
+    await db.commit()
     return event
 
 
@@ -160,6 +161,7 @@ async def create_run(
     )
     db.add(run)
     await db.flush()
+    await db.commit()
 
     await _record_event(
         db,
@@ -223,6 +225,7 @@ async def transition_run(
         run.failure_reason = body.reason
 
     await db.flush()
+    await db.commit()
 
     await _record_event(
         db,
@@ -260,6 +263,7 @@ async def cancel_run(
 
     run.state = RunState.CANCELLED
     await db.flush()
+    await db.commit()
 
     await _record_event(
         db,
@@ -281,9 +285,23 @@ async def approve_run(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> Run:
-    """Approve a run currently awaiting plan or action approval."""
+    """Approve a run currently awaiting plan or action approval.
+
+    Separation of duties is limited by the single-owner MVP model (only the
+    project owner can reach this endpoint, so a distinct approver cannot
+    exist yet). As a compatible control, self-approval requires an explicit
+    written justification and is permanently flagged as self-approved in the
+    run timeline and audit trail.
+    """
     run = await _get_owned_run(run_id, user, db)
     current_state = RunState(run.state)
+
+    self_approval = run.created_by == user.id
+    if self_approval and len(body.justification.strip()) < 10:
+        raise HTTPException(
+            status_code=422,
+            detail="Self-approval requires a written justification (at least 10 characters).",
+        )
 
     approval_type, next_state = _approval_target(current_state)
     if approval_type is None or next_state is None:
@@ -310,6 +328,7 @@ async def approve_run(
 
     run.state = next_state
     await db.flush()
+    await db.commit()
 
     await _record_event(
         db,
@@ -318,7 +337,11 @@ async def approve_run(
         from_state=current_state,
         to_state=next_state,
         actor_id=user.id,
-        payload={"decision": "approved", "justification": body.justification},
+        payload={
+            "decision": "approved",
+            "justification": body.justification,
+            "self_approved": run.created_by == user.id,
+        },
     )
     db.add(
         AuditEvent(
@@ -327,10 +350,15 @@ async def approve_run(
             target_type="run",
             target_id=run.id,
             action="approval.approved",
-            metadata_json={"approval_type": approval_type, "to_state": next_state.value},
+            metadata_json={
+                "approval_type": approval_type,
+                "to_state": next_state.value,
+                "self_approved": run.created_by == user.id,
+            },
         )
     )
     await db.flush()
+    await db.commit()
 
     if next_state == RunState.QUEUED:
         await enqueue_run_job(run.id)
@@ -346,9 +374,20 @@ async def reject_run(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> Run:
-    """Reject a run currently awaiting plan or action approval. Moves it to CANCELLED."""
+    """Reject a run currently awaiting plan or action approval. Moves it to CANCELLED.
+
+    Self-decisions are flagged in the timeline and audit trail (see
+    `approve_run` for why full blocking is not compatible with single-owner
+    MVP); rejection additionally requires a written justification.
+    """
     run = await _get_owned_run(run_id, user, db)
     current_state = RunState(run.state)
+
+    if len(body.justification.strip()) < 10:
+        raise HTTPException(
+            status_code=422,
+            detail="Rejecting a run requires a written justification (at least 10 characters).",
+        )
 
     approval_type, _ = _approval_target(current_state)
     if approval_type is None:
@@ -375,6 +414,7 @@ async def reject_run(
 
     run.state = RunState.CANCELLED
     await db.flush()
+    await db.commit()
 
     await _record_event(
         db,
@@ -383,7 +423,11 @@ async def reject_run(
         from_state=current_state,
         to_state=RunState.CANCELLED,
         actor_id=user.id,
-        payload={"decision": "rejected", "justification": body.justification},
+        payload={
+            "decision": "rejected",
+            "justification": body.justification,
+            "self_approved": run.created_by == user.id,
+        },
     )
     db.add(
         AuditEvent(
@@ -392,12 +436,16 @@ async def reject_run(
             target_type="run",
             target_id=run.id,
             action="approval.rejected",
-            metadata_json={"approval_type": approval_type},
+            metadata_json={
+                "approval_type": approval_type,
+                "self_approved": run.created_by == user.id,
+            },
         )
     )
     await db.flush()
 
     await db.refresh(run)
+    await db.commit()
     return run
 
 
