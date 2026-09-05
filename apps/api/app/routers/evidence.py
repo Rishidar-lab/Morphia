@@ -150,12 +150,14 @@ async def upload_evidence(
     )
     db.add(evidence)
     await db.flush()
+    await db.commit()
 
     storage_path = _storage_path(project_id, evidence.id, evidence.original_filename)
     backend = get_storage_backend()
     await backend.upload(storage_path, data, evidence.content_type)
     evidence.storage_path = storage_path
     await db.flush()
+    await db.commit()
 
     audit = AuditEvent(
         event_type=AuditEventType.EVIDENCE_UPLOAD,
@@ -168,6 +170,7 @@ async def upload_evidence(
     db.add(audit)
     await db.flush()
     await db.refresh(evidence)
+    await db.commit()
 
     return evidence
 
@@ -226,6 +229,7 @@ async def verify_evidence(
         evidence.notes = body.notes
 
     await db.flush()
+    await db.commit()
 
     audit = AuditEvent(
         event_type=AuditEventType.EVIDENCE_UPLOAD,
@@ -238,5 +242,6 @@ async def verify_evidence(
     db.add(audit)
     await db.flush()
     await db.refresh(evidence)
+    await db.commit()
 
     return evidence

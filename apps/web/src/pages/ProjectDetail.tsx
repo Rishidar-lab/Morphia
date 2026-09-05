@@ -24,6 +24,9 @@ function OverviewTab({ projectId }: { projectId: string }) {
   const engagementsQuery = useQuery({
     queryKey: ["engagements", projectId],
     queryFn: () => api.get<Engagement[]>(`/api/v1/projects/${projectId}/engagements`),
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: false,
+    staleTime: 0,
   });
   const runsQuery = useQuery({
     queryKey: ["runs"],
@@ -86,8 +89,8 @@ function NewEngagementForm({
       authorization_basis: string;
       notes: string;
     }) => api.post<Engagement>(`/api/v1/projects/${projectId}/engagements`, body),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["engagements", projectId] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["engagements", projectId] });
       onDone();
     },
   });
@@ -175,6 +178,9 @@ function EngagementsTab({ projectId }: { projectId: string }) {
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["engagements", projectId],
     queryFn: () => api.get<Engagement[]>(`/api/v1/projects/${projectId}/engagements`),
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: false,
+    staleTime: 0,
   });
 
   return (
@@ -456,6 +462,9 @@ function ScopeTab({ projectId }: { projectId: string }) {
   const engagementsQuery = useQuery({
     queryKey: ["engagements", projectId],
     queryFn: () => api.get<Engagement[]>(`/api/v1/projects/${projectId}/engagements`),
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: false,
+    staleTime: 0,
   });
 
   const engagements = engagementsQuery.data ?? [];

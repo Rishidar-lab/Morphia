@@ -29,6 +29,11 @@ export default defineConfig({
   preview: {
     port: 3000,
     host: "0.0.0.0",
+    // Allow any host (the production Caddy layer enforces the real
+    // policy). The Vite preview server's own allow-list is just a
+    // dev-time guard against DNS-rebinding-style attacks when the
+    // server is reachable without a proxy.
+    allowedHosts: true,
     proxy: {
       "/api": {
         target: process.env.API_PROXY_TARGET || "http://localhost:8000",

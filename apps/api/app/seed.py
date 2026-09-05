@@ -642,8 +642,12 @@ def _seed_failed_run(db: SyncSession, project: Project, engagement: Engagement, 
 
 def main() -> None:
     settings = get_settings()
-    if settings.is_production:
-        print("[seed] Refusing to seed in production. Aborting.", file=sys.stderr)
+    if settings.is_production and not os.getenv("ALLOW_PROD_SEED"):
+        print(
+            "[seed] Refusing to seed in production. Set ALLOW_PROD_SEED=1 to override "
+            "(e.g. first-boot of the hosted demo).",
+            file=sys.stderr,
+        )
         sys.exit(1)
     if not ADMIN_PASSWORD:
         print(

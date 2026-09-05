@@ -208,6 +208,7 @@ async def create_finding(
     )
     db.add(finding)
     await db.flush()
+    await db.commit()
 
     audit = AuditEvent(
         event_type=AuditEventType.FINDING_CREATE,
@@ -219,6 +220,7 @@ async def create_finding(
     )
     db.add(audit)
     await db.flush()
+    await db.commit()
 
     return finding
 
@@ -270,6 +272,7 @@ async def update_finding(
         setattr(finding, field_name, value)
 
     await db.flush()
+    await db.commit()
 
     if "state" in update_data and update_data["state"] != previous_state:
         audit = AuditEvent(
@@ -284,6 +287,7 @@ async def update_finding(
         await db.flush()
 
     await db.refresh(finding)
+    await db.commit()
     return finding
 
 
@@ -317,5 +321,6 @@ async def verify_finding(
         finding.state = "rejected"
 
     await db.flush()
+    await db.commit()
 
     return verification

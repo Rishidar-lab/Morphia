@@ -135,6 +135,7 @@ async def _record_event(
     )
     db.add(event)
     await db.flush()
+    await db.commit()
     return event
 
 
@@ -160,6 +161,7 @@ async def create_run(
     )
     db.add(run)
     await db.flush()
+    await db.commit()
 
     await _record_event(
         db,
@@ -223,6 +225,7 @@ async def transition_run(
         run.failure_reason = body.reason
 
     await db.flush()
+    await db.commit()
 
     await _record_event(
         db,
@@ -260,6 +263,7 @@ async def cancel_run(
 
     run.state = RunState.CANCELLED
     await db.flush()
+    await db.commit()
 
     await _record_event(
         db,
@@ -324,6 +328,7 @@ async def approve_run(
 
     run.state = next_state
     await db.flush()
+    await db.commit()
 
     await _record_event(
         db,
@@ -353,6 +358,7 @@ async def approve_run(
         )
     )
     await db.flush()
+    await db.commit()
 
     if next_state == RunState.QUEUED:
         await enqueue_run_job(run.id)
@@ -408,6 +414,7 @@ async def reject_run(
 
     run.state = RunState.CANCELLED
     await db.flush()
+    await db.commit()
 
     await _record_event(
         db,
@@ -438,6 +445,7 @@ async def reject_run(
     await db.flush()
 
     await db.refresh(run)
+    await db.commit()
     return run
 
 

@@ -99,6 +99,7 @@ async def create_engagement(
     )
     db.add(engagement)
     await db.flush()
+    await db.commit()
 
     db.add(
         AuditEvent(
@@ -111,6 +112,7 @@ async def create_engagement(
         )
     )
     await db.flush()
+    await db.commit()
     return engagement
 
 
@@ -157,4 +159,5 @@ async def update_engagement(
 
     await db.flush()
     await db.refresh(engagement)
+    await db.commit()
     return engagement

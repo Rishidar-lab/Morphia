@@ -97,6 +97,7 @@ async def create_scope_rule(
     )
     db.add(scope_rule)
     await db.flush()
+    await db.commit()
 
     db.add(
         AuditEvent(
@@ -113,6 +114,7 @@ async def create_scope_rule(
         )
     )
     await db.flush()
+    await db.commit()
 
     return scope_rule
 
@@ -159,3 +161,4 @@ async def delete_scope_rule(
     )
     await db.delete(scope_rule)
     await db.flush()
+    await db.commit()

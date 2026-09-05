@@ -16,6 +16,8 @@ BASELINE_HEADERS = {
     "X-Content-Type-Options": "nosniff",
     "Referrer-Policy": "same-origin",
     "X-Frame-Options": "DENY",
+    "Cache-Control": "no-store",
+    "Pragma": "no-cache",
 }
 
 PRODUCTION_CSP = (

@@ -219,6 +219,7 @@ async def create_report(
     )
     db.add(report)
     await db.flush()
+    await db.commit()
 
     audit = AuditEvent(
         event_type=AuditEventType.REPORT_GENERATE,
@@ -230,6 +231,7 @@ async def create_report(
     )
     db.add(audit)
     await db.flush()
+    await db.commit()
 
     return report
 
@@ -275,6 +277,7 @@ async def update_report(
 
     await db.flush()
     await db.refresh(report)
+    await db.commit()
     return report
 
 
@@ -306,6 +309,7 @@ async def export_report(
     )
     db.add(audit)
     await db.flush()
+    await db.commit()
 
     if export_format == "markdown":
         content = _generator.generate_markdown(report, findings, evidence)
@@ -358,4 +362,5 @@ async def link_findings(
         created.append(link)
 
     await db.flush()
+    await db.commit()
     return created

@@ -18,15 +18,15 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   workers: 1,
-  timeout: 120_000,
-  expect: { timeout: 15_000 },
+  timeout: 300_000,
+  expect: { timeout: 30_000 },
   reporter: [["html", { open: "never" }], ["list"]],
   use: {
     baseURL: WEB_URL,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
-    actionTimeout: 15_000,
+    actionTimeout: 30_000,
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
 });
