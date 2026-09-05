@@ -62,6 +62,7 @@ business logic. Full rationale in `docs/recovery-audit.md`.
 | Run state machine (10 states, legal-transition table, approval gates) | Implemented, tested |
 | Redis queue hand-off + authenticated worker-callback API (`claim` / `steps` / `transition`) | Implemented, tested |
 | Worker execution via pluggable provider (mock / OpenAI / OpenRouter / local) | Implemented; mock path is the demo default |
+| Real tool execution via `ToolAdapter` — a plan step's evidence is a real binary's own stdout/stderr/exit code | Implemented for one tool (`httpx`), tested |
 | Evidence: SHA-256 integrity, local/S3 storage, verification lifecycle | Implemented, tested |
 | Findings: 10-state lifecycle + verification records | Implemented, tested |
 | Reports: draft→final, Markdown/HTML/JSON export, HackerOne-style template | Implemented, tested |
@@ -164,6 +165,45 @@ More in [`docs/assets/screenshots/`](docs/assets/screenshots/). Social preview: 
 
 The Operations Canvas makes the thesis visible within ~10 seconds: **scope before execution, evidence before conclusions, humans before consequential actions.**
 
+## Verifiable tool execution
+
+Before this, every run step's evidence was whatever an LLM said happened —
+even for a step meant to represent a real scan. A model can describe a
+plausible HTTP response it never actually made; on a platform whose thesis is
+"evidence before conclusions," that gap mattered.
+
+A `ToolAdapter` abstraction (`apps/worker/app/tools/base.py`) mirrors the
+existing `ProviderAdapter` pattern, but for real subprocesses instead of LLM
+calls. Its first implementation, `HttpxTool`
+(`apps/worker/app/tools/httpx_tool.py`), wraps ProjectDiscovery's `httpx`
+binary — a read-only HTTP probe, invoked by absolute path with a fixed
+argument vector (no shell), under a hard timeout and a 256 KB per-stream
+output cap. A plan step tagged `"tool": "httpx"` goes through the *identical*
+claim-time `ScopeValidator` call as every other step
+(`apps/api/app/routers/worker.py`) — there is no separate, less-checked
+dispatch route for tool execution. On completion, the step's `output_data`
+carries the real `argv`, `exit_code`, `stdout`, `stderr`, and duration, tagged
+`"source": "tool"`; an LLM-backed step is now tagged `"source": "model"` for
+symmetry. The binary itself is installed in the worker image with a pinned
+version and a checksum verified against the upstream release
+(`infra/docker/worker.Dockerfile`), and CI proves the *shipped image* can run
+it against the live demo target (`.github/workflows/ci.yml`, "Tool adapter
+proof") — not just that the Python compiles.
+
+Getting this right surfaced three real, non-obvious bugs, found only by
+running the actual binary: it writes its version banner to stderr, not
+stdout; it exits `0` unconditionally even against an unreachable target with
+zero output, so `ToolResult.succeeded` is a field each adapter computes
+explicitly rather than one derived from the exit code; and an outer timeout
+equal to the tool's own `-timeout` flag could kill a probe that was about to
+finish successfully. Full writeup, including the tradeoffs behind the
+tool-specific (not generic-shell-out) design:
+[`docs/portfolio-case-study.md`](docs/portfolio-case-study.md).
+
+Only `httpx` is wired today — this is one real tool, not a generic ability to
+run arbitrary binaries, and tool subprocesses run inside the worker container
+itself with no additional per-run sandbox yet (`docs/security.md` §1.5).
+
 ## Security boundaries
 
 - **Authorization before execution** — every target validated against the
@@ -193,11 +233,14 @@ quality + build, Docker image build, a **service-backed integration** job
 (compose up → migrate → seed → live journey → scope proof), a **Playwright E2E**
 job (report uploaded as an artifact), and secret scanning.
 
-Current: 130 API + 8 worker + 53 web unit tests, 6 live Playwright tests — all
-green, verified against a freshly built stack with a wiped database (not just
-re-run against a warm one). Evidence matrix: `docs/mvp-verification.md`.
-QA process docs (test plan, test cases, real bug reports found while
-verifying this project): `docs/qa/`.
+Current snapshot, as of `feat/real-tool-adapter` (PR #5), verified by running
+each suite directly rather than assumed from a prior report: 132 API + 13
+worker (2 of those are real-httpx-binary integration tests, skipped only on a
+host without the binary installed — CI always has it) + 53 web unit tests, 6
+live Playwright tests — all green, verified against a freshly built stack
+with a wiped database (not just re-run against a warm one). Evidence matrix:
+`docs/mvp-verification.md`. QA process docs (test plan, test cases, real bug
+reports found while verifying this project): `docs/qa/`.
 
 ## Project status
 
@@ -249,6 +292,12 @@ sample, not for end users of the product:
 - [`docs/qa/`](docs/qa/) — a test plan, a representative test-case catalog,
   and full bug reports (repro steps, root cause, fix, regression test) for
   every defect referenced above.
+- [`docs/portfolio-case-study.md`](docs/portfolio-case-study.md) — a focused
+  engineering case study on the real-tool-execution change above: the gap it
+  closed, the implementation, verification, and genuine tradeoffs.
+- [`docs/job-application-snippets.md`](docs/job-application-snippets.md) — CV
+  bullets, interview pitches, and answers to common interview questions,
+  all grounded in this repository.
 
 ## Roadmap
 
@@ -256,7 +305,10 @@ sample, not for end users of the product:
 - Enforce approver ≠ run creator
 - SSRF deny-list + DNS-rebinding checks in the scope validator
 - Content-type/magic-byte validation on evidence upload
-- Real tool-adapter execution in the worker, sandboxed
+- Per-run sandboxing for tool execution (the `httpx` adapter itself is
+  implemented and tested; it runs inside the worker container today, not a
+  dedicated sandbox — see [Verifiable tool execution](#verifiable-tool-execution))
+- A second real tool behind the same `ToolAdapter` interface
 - Production deployment manifests + a verified backup/restore drill
 - Per-run / per-engagement provider selection
 

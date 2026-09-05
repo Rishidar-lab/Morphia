@@ -101,3 +101,41 @@ Cut to the **Audit Log** page.
 Show the GitHub repo and the CI badge.
 > "MVP, alpha — the journey is verified end to end against a live stack.
 > Repo and the verification matrix are linked below."
+
+---
+
+## Addendum — Real tool execution (httpx, PR #5)
+
+This beat isn't in the recorded CI video yet — there's no UI affordance to
+tag a plan step with a tool (see `docs/portfolio-case-study.md`, "What I
+Would Improve Next" #1/#3). It's genuinely demonstrable today, the same way
+`scripts/demo.sh` drives CASE A/B: a direct API call, not the UI form.
+
+With the stack up and signed in (grab a session cookie + CSRF token from the
+UI, or reuse `scripts/demo.sh`'s pattern), create a run whose plan step
+carries `"tool": "httpx"` instead of a `prompt`:
+
+```bash
+curl -s -X POST http://localhost:8000/api/v1/runs \
+  -H 'Content-Type: application/json' \
+  -H "Cookie: $SESSION_COOKIE" -H "X-CSRF-Token: $CSRF_TOKEN" \
+  -d '{
+        "title": "real tool probe",
+        "engagement_id": "'"$ENGAGEMENT_ID"'",
+        "agent_profile": "passive_recon",
+        "plan": {"steps": [{"action": "httpx_probe", "target": "http://demo-target:9000/headers", "tool": "httpx"}]}
+      }'
+```
+
+Approve it as usual, then open the run once it completes:
+
+> "Same plan shape, same claim/scope/approve pipeline — but this step's
+> `output_data` is tagged `"source": "tool"`, and the `stdout` field is the
+> real httpx binary's own JSON output against the demo target, not a model's
+> description of what it might find."
+
+For the failure path, repeat with an unreachable target
+(`http://127.0.0.1:1/nope`) and show the step comes back `status: "failed"`
+with `succeeded: false` and empty `stdout` — httpx exits `0` even here, which
+is exactly why `ToolResult.succeeded` isn't derived from the exit code (see
+the case study's "Engineering Tradeoffs" section).
