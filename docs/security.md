@@ -51,8 +51,8 @@ MORPHIA's overriding security posture: **scope enforcement is the primary securi
 
 **Controls:**
 - Tool adapters invoke external binaries using argument-vector execution (`subprocess` with a list of args), never a shell string that gets interpolated (`shell=True` with string concatenation is disallowed by policy and lint rule).
-- All parameters that flow into a tool invocation (target hostnames, ports, flags) are validated against strict allow-lists/regex before being placed into the argument vector — a target that fails validation never reaches the subprocess call.
-- Tool adapters run with the minimum OS privileges required and, where the deployment supports it, inside a per-run container/sandbox so a compromised tool cannot pivot to the worker host itself.
+- The target passed into a tool invocation has already cleared the 8-point scope validator and the SSRF/DNS-rebinding deny-list (`docs/architecture.md` §7) before it is ever placed into the argument vector — a target that fails validation never reaches the subprocess call.
+- Tool adapters run as a subprocess of the worker process itself (argument-vector exec, hard timeout, output-size cap). There is no additional per-run container or sandbox around each invocation yet — a compromised tool binary is confined to the worker container's own privilege level (no host network mode, no elevated capabilities, no direct database access), not further isolated from it. Per-run sandboxing is a known future hardening step, not a shipped control.
 - Scope validation (see `docs/architecture.md` §7) happens before the tool adapter is even invoked, so this control is defense-in-depth layered on top of authorization, not a substitute for it.
 
 ### 1.6 Prompt injection
@@ -63,7 +63,7 @@ MORPHIA's overriding security posture: **scope enforcement is the primary securi
 - The agent's proposed actions are never auto-executed. Every plan passes through `AWAITING_PLAN_APPROVAL` and intrusive/ambiguous actions pass through `AWAITING_ACTION_APPROVAL` — a human reviews the actual proposed action text before it can affect a live target, regardless of what convinced the model to propose it.
 - Untrusted content (tool output, fetched pages) is passed to the model as clearly delimited data, never concatenated into the system/instruction prompt in a way that lets it masquerade as an operator instruction.
 - The scope validator does not consult the model's own claims about what's in scope — scope is checked against the engagement's stored scope table, a source the model cannot influence via its output.
-- Tool and provider actions available to the agent are capability-scoped per run/engagement; a prompt-injected agent cannot invoke a tool that was never granted to that run, no matter what it's convinced to attempt.
+- Which tool (if any) runs for a step is fixed in the run's plan at authoring time and requires human approval (`AWAITING_PLAN_APPROVAL`) before the run is queued — the worker executes exactly what was approved. There is no runtime mechanism by which a step's model output, or a prompt-injected target response, can select or invoke a tool that wasn't already in the approved plan.
 
 ### 1.7 Provider key exposure
 
@@ -82,8 +82,8 @@ MORPHIA's overriding security posture: **scope enforcement is the primary securi
 **Controls:**
 - Scope entries and any user-supplied URL/hostname used in a server-initiated request are validated against a deny-list of private/link-local/loopback ranges (RFC 1918, `169.254.169.254`, `::1`, etc.) before any request is made, both at scope-entry creation time and again at execution time.
 - DNS resolution results are checked, not just the literal hostname string, to prevent DNS-rebinding-style bypasses (a hostname that resolves to a public IP at validation time but an internal IP at request time).
-- Redirects followed during tool execution are re-validated against the same deny-list at each hop rather than trusted blindly.
-- Outbound requests from the worker to targets are made from network contexts (e.g., isolated egress, dedicated worker network segment) that cannot reach the platform's own internal services, providing a network-layer backstop to the application-layer checks.
+- The shipped httpx tool adapter does not follow redirects at all (`-follow-redirects` is never passed) — this sidesteps the redirect-revalidation problem rather than solving it. A future tool adapter that needs to follow redirects would need to re-validate each hop against the same deny-list before continuing.
+- Today the worker, api, postgres, redis, and demo-target all share one Docker Compose bridge network — `docker-compose.yml` has no `networks:` segmentation. There is no network-layer backstop isolating worker egress from the platform's own internal services; the application-layer checks above (deny-list, DNS-rebinding check) are the only enforcement. Segmenting the worker onto its own network is a known gap, not a shipped control.
 
 ### 1.9 Webhook forgery
 
@@ -121,7 +121,7 @@ MORPHIA's overriding security posture: **scope enforcement is the primary securi
 **Controls:**
 - Role is never accepted as client-supplied input on any endpoint a non-privileged user can call — role changes are exposed only via an Administrator/Owner-gated endpoint, and that endpoint itself checks the *caller's* role server-side before applying the change (never the caller's self-reported claim).
 - New registrations are hard-coded to the least-privileged role (`researcher`) at creation time in `register()` — there is no request field that lets a self-registering user set their own role.
-- No self-approval: the actor who created/owns a run is blocked from approving that same run's plan or action approval requests, regardless of their role, closing the "Administrator approves their own risky action" gap.
+- Self-approval is **not blocked** — a single-owner MVP has no second approver to fall back to, so a hard block would deadlock every run. Instead it is a flagged compensating control: approving your own run requires an explicit written justification (≥10 characters) and is permanently recorded as `self_approved: true` on the approval, the run timeline, and the audit trail. Rejection always requires the same justification. This is weaker than a hard block and should be described as such, not as prevention.
 - Role checks are centralized in dependency functions rather than duplicated ad hoc per endpoint, reducing the chance that a new endpoint is added without the check.
 
 ## 2. Scope Enforcement as the Primary Security Boundary

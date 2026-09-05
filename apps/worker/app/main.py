@@ -21,8 +21,9 @@ import redis.asyncio as aioredis
 import structlog
 
 from app import config
-from app.api_client import ApiClientError, WorkerApiClient
+from app.api_client import ApiClientError, ClaimResult, WorkerApiClient
 from app.providers import ProviderError, ProviderMessage, get_provider
+from app.tools import ToolError, get_tool
 
 logger = structlog.get_logger()
 
@@ -59,6 +60,105 @@ async def heartbeat(client: aioredis.Redis, worker_id: str) -> None:
         await asyncio.sleep(config.HEARTBEAT_INTERVAL)
 
 
+async def _fail_step(
+    api: WorkerApiClient, run_id: str, claim: ClaimResult, *, error: str, log: structlog.BoundLogger
+) -> None:
+    """Record a tool-side failure as a failed step and end the run."""
+    step_number = claim.step_number or 0
+    try:
+        await api.submit_step(
+            run_id,
+            step_number=step_number,
+            action=claim.action or "",
+            status="failed",
+            input_data={"target": claim.target, "action": claim.action, "tool": claim.tool},
+            output_data=None,
+            error=error,
+        )
+        await api.transition_run(
+            run_id, "FAILED", reason=f"Tool error at step {step_number}: {error}"
+        )
+    except ApiClientError as exc:
+        log.error("worker.failure_report_failed", error=str(exc))
+
+
+async def run_tool_step(
+    api: WorkerApiClient, run_id: str, claim: ClaimResult, log: structlog.BoundLogger
+) -> bool:
+    """Execute a tool-backed step (claim.tool is set). The tool's real
+    stdout/stderr/exit code become the step's evidence — never a model's
+    description of what it thinks a tool would find.
+
+    Returns True if the run should continue to the next step, False if
+    this step ended the run (a failed step + FAILED transition were
+    already reported).
+    """
+    step_number = claim.step_number or 0
+
+    try:
+        tool = get_tool(claim.tool or "")
+    except ToolError as exc:
+        log.error("worker.tool_unavailable", step_number=step_number, error=str(exc))
+        await _fail_step(api, run_id, claim, error=str(exc), log=log)
+        return False
+
+    try:
+        result = await tool.run(claim.target or "")
+    except ToolError as exc:
+        log.error("worker.tool_invoke_failed", step_number=step_number, error=str(exc))
+        await _fail_step(api, run_id, claim, error=str(exc), log=log)
+        return False
+
+    status = "completed" if result.succeeded else "failed"
+    error = (
+        ""
+        if result.succeeded
+        else (
+            result.stderr.strip()
+            or (f"exit code {result.exit_code}" if result.exit_code else "tool produced no output")
+        )
+    )
+
+    try:
+        await api.submit_step(
+            run_id,
+            step_number=step_number,
+            action=claim.action or "",
+            status=status,
+            input_data={"target": claim.target, "action": claim.action, "tool": claim.tool},
+            output_data={
+                "source": "tool",
+                "tool": result.tool,
+                "tool_version": result.tool_version,
+                "argv": result.argv,
+                "exit_code": result.exit_code,
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+                "duration_ms": result.duration_ms,
+                "timed_out": result.timed_out,
+                "truncated": result.truncated,
+            },
+            error=error,
+        )
+    except ApiClientError as exc:
+        log.error("worker.submit_step_failed", step_number=step_number, error=str(exc))
+        return False
+
+    if status == "failed":
+        try:
+            await api.transition_run(
+                run_id,
+                "FAILED",
+                reason=f"Tool '{result.tool}' failed at step {step_number}: {error}",
+            )
+        except ApiClientError as exc:
+            log.error("worker.failure_report_failed", error=str(exc))
+        return False
+
+    log.info("worker.step_completed", step_number=step_number, source="tool")
+    return True
+
+
 async def execute_run(run_id: str, worker_id: str) -> None:
     """Drive a run to completion: claim each step, invoke the provider, report back."""
     api = WorkerApiClient(worker_id)
@@ -87,7 +187,13 @@ async def execute_run(run_id: str, worker_id: str) -> None:
             step_number=claim.step_number,
             action=claim.action,
             target=claim.target,
+            tool=claim.tool,
         )
+
+        if claim.tool:
+            if not await run_tool_step(api, run_id, claim, log):
+                return
+            continue
 
         messages = [
             ProviderMessage(role="system", content=SYSTEM_PROMPT),
@@ -126,6 +232,7 @@ async def execute_run(run_id: str, worker_id: str) -> None:
                 status="completed",
                 input_data={"target": claim.target, "action": claim.action, "prompt": claim.prompt},
                 output_data={
+                    "source": "model",
                     "response": result.content,
                     "provider": result.provider,
                     "model": result.model,

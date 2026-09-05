@@ -71,14 +71,19 @@ async def _workspace(client: AsyncClient) -> tuple[str, str]:
     return pid, eid
 
 
-async def _approved_run(client: AsyncClient, pid: str, eid: str, target: str) -> str:
+async def _approved_run(
+    client: AsyncClient, pid: str, eid: str, target: str, *, tool: str | None = None
+) -> str:
+    step: dict = {"action": "http_probe", "target": target, "prompt": "x"}
+    if tool:
+        step["tool"] = tool
     run_id = (
         await client.post(
             f"/api/v1/projects/{pid}/runs",
             json={
                 "title": f"probe {target}",
                 "engagement_id": eid,
-                "plan": {"steps": [{"action": "http_probe", "target": target, "prompt": "x"}]},
+                "plan": {"steps": [step]},
             },
         )
     ).json()["id"]
@@ -146,3 +151,38 @@ async def test_worker_claim_requires_the_shared_secret(client: AsyncClient):
 
     resp = await client.post(f"/api/worker/runs/{run_id}/claim", json={"worker_id": "attacker"})
     assert resp.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_tool_backed_step_passes_through_and_is_still_scope_checked(client: AsyncClient):
+    """A `tool`-tagged plan step must go through the exact same claim path
+    and 8-point scope validator as an LLM step — no separate, unchecked
+    dispatch route for tool execution."""
+    await _auth(client, "scope-tool-allow@example.com")
+    pid, eid = await _workspace(client)
+    run_id = await _approved_run(client, pid, eid, "demo-target", tool="httpx")
+
+    resp = await client.post(
+        f"/api/worker/runs/{run_id}/claim",
+        json={"worker_id": "test-worker"},
+        headers=WORKER_HEADERS,
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["tool"] == "httpx"
+    assert body["target"] == "demo-target"
+
+
+@pytest.mark.asyncio
+async def test_tool_backed_step_out_of_scope_is_still_refused(client: AsyncClient):
+    await _auth(client, "scope-tool-deny@example.com")
+    pid, eid = await _workspace(client)
+    run_id = await _approved_run(client, pid, eid, "production.example.com", tool="httpx")
+
+    resp = await client.post(
+        f"/api/worker/runs/{run_id}/claim",
+        json={"worker_id": "test-worker"},
+        headers=WORKER_HEADERS,
+    )
+    assert resp.status_code == 403
+    assert "does not match any allowed scope rule" in resp.json()["detail"].lower()

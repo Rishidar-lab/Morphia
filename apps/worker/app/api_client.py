@@ -27,6 +27,7 @@ class ClaimResult:
     target: str | None = None
     prompt: str | None = None
     agent_profile: str | None = None
+    tool: str | None = None
 
 
 class WorkerApiClient:
